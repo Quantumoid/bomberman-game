@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bomberman Game</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' ws:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';">
+    <style>
+        body { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; /* Center vertically */
+            height: 100vh; /* Full viewport height */
+            margin: 0; /* Remove default margin */
+            background-color: #eaeaea; 
+            font-family: Arial, sans-serif;
+        }
+        #game-container { 
+            display: flex; 
+            flex-direction: row; 
+            align-items: flex-start;
+        }
+        #game-area { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+        #game { 
+            display: grid;
+            grid-template-columns: repeat(15, 50px);
+            grid-template-rows: repeat(15, 50px);
+            gap: 2px;
+            width: 770px;
+            height: 770px;
+            background-color: #000;
+            position: relative;
+        }
+        /* Define the cell styles */
+        .cell {
+            width: 50px;
+            height: 50px;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .empty-space { background-color: blue; }
+
+        /* Brick walls and indestructible walls */
+        .brick-wall {
+            background-image: url('/brick_wall_texture.png');
+            background-size: cover;
+        }
+        .indestructible-wall {
+            background-color: green;
+        }
+
+        /* Power-up icons will be images inside the cell */
+        .power-up-icon {
+            position: absolute;
+            width: 30px; /* Adjust size as needed */
+            height: 30px;
+            top: 10px; /* Center vertically */
+            left: 10px; /* Center horizontally */
+            z-index: 1;
+            pointer-events: none; /* So clicks pass through */
+        }
+
+        /* Adjust player image size and positioning */
+        .player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            z-index: 2;
+            top: 5px;
+            left: 5px;
+            transition: transform 0.1s; /* Smooth movement */
+        }
+
+        /* Flash effect when player is hit */
+        .player.hit {
+            animation: flash-red 0.5s;
+        }
+
+        @keyframes flash-red {
+            0% { filter: brightness(100%); }
+            50% { filter: brightness(50%) sepia(100%) hue-rotate(-50deg); }
+            100% { filter: brightness(100%); }
+        }
+
+        /* Explosion effect */
+        .explosion-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50px;
+            height: 50px;
+            background-image: url('/explosion_sprite.png'); /* Ensure this sprite exists */
+            background-size: cover;
+            background-position: center;
+            z-index: 3; /* Ensure it's above other elements */
+            opacity: 0.7; /* Add transparency */
+            pointer-events: none; /* Allow clicks to pass through */
+            animation: explode 1s forwards;
+        }
+
+        @keyframes explode {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(1.5); }
+        }
+
+        /* Bomb image size and positioning */
+        .bomb {
+            position: absolute;
+            width: 45px; /* Make the bomb larger than the player */
+            height: 45px;
+            z-index: 1;
+            top: 2.5px; /* Center the bomb vertically */
+            left: 2.5px; /* Center the bomb horizontally */
+        }
+
+        #status {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #333;
+        }
+
+        /* Updated styles for the player list */
+        #player-list {
+            margin-left: 20px;
+            background-color: #d4edda; /* Light green background */
+            border: 1px solid #c3e6cb; /* Green border */
+            padding: 10px;
+            border-radius: 5px;
+            width: 200px; /* Fixed width */
+            height: 600px; /* Set a fixed height */
+            overflow-y: auto; /* Enable vertical scrolling */
+        }
+        #player-list h2 {
+            margin-bottom: 10px;
+            text-align: center;
+            color: #155724; /* Dark green text */
+        }
+        #player-list ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        #player-list li {
+            margin-bottom: 10px; /* Increase spacing */
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            color: #155724;
+        }
+        #player-list li img {
+            width: 24px; /* Adjust size of player icon */
+            height: 24px;
+            margin-right: 10px;
+        }
+
+        /* Styles for the message container and messages */
+        #message-container {
+            margin-top: 10px;
+            width: 100%;
+            text-align: left;
+            position: relative;
+        }
+        .game-message {
+            display: block;
+            background-color: rgba(255, 255, 255, 0.9); /* White background */
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 5px;
+            animation: fadeout 5s forwards;
+            font-size: 14px;
+        }
+        @keyframes fadeout {
+            0% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Optional: Enhanced styling for hit messages */
+        .game-message.hit-message {
+            background-color: rgba(255, 0, 0, 0.8); /* Semi-transparent red background */
+            color: #fff;
+            font-weight: bold;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        /* Styles for the nickname overlay */
+        #nickname-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure it is on top */
+        }
+
+        #nickname-prompt {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        #nickname-prompt h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        #nickname-prompt input {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #nickname-prompt button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #28a745; /* Green background */
+            color: #fff;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #nickname-prompt button:hover {
+            background-color: #218838; /* Darker green on hover */
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="game-area">
+        <div id="game"></div>
+        <div id="status">Game started! Use arrow keys to move. Press space to drop a bomb.</div>
+    </div>
+    <div id="player-list">
+        <h2>Players</h2>
+        <ul id="players"></ul>
+        <h2>Messages</h2>
+        <div id="message-container"></div>
+    </div>
+</div>
+
+<!-- Audio elements for sound effects -->
+<audio id="powerup-sound" src="/powerup_sound.mp3"></audio>
+<audio id="bomb-explosion-sound" src="/bomb_explosion.mp3"></audio>
+
+<!-- Nickname Overlay -->
+<div id="nickname-overlay">
+    <div id="nickname-prompt">
+        <h2>Enter your nickname</h2>
+        <input type="text" id="nickname-input" maxlength="20" placeholder="Nickname">
+        <button id="nickname-submit">Join Game</button>
+    </div>
+</div>
+
+<script>
+    let ws;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelay = 1000;
+    const gameElement = document.getElementById('game');
+    const statusElement = document.getElementById('status');
+    const playerListElement = document.getElementById('players');
+
+    let map = []; // Will be initialized from server
+    let powerUps = {}; // Positions of power-ups
+
+    let playerId;
+    let password;
+    const players = {};
+    const playerImages = {}; // Mapping of playerId to image name
+    let nickname;
+
+    let keysPressed = {};
+    let movementInterval = null;
+    let movementSpeed = 300; // milliseconds per movement step
+
+    function escapeHtml(unsafe) {
+        return unsafe.replace(/[&<"'>]/g, function(m) {
+            switch (m) {
+                case '&': return '&amp;';
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '"': return '&quot;';
+                case "'": return '&#039;';
+                default: return m;
+            }
+        });
+    }
+
+    function initializeGameGrid() {
+        gameElement.innerHTML = ''; // Clear existing grid
+        for (let row = 0; row < map.length; row++) {
+            for (let col = 0; col < map[row].length; col++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+
+                if (map[row][col] === 1) {
+                    cell.classList.add('brick-wall');
+                } else if (map[row][col] === 0) {
+                    cell.classList.add('empty-space');
+                } else if (map[row][col] === 2) {
+                    cell.classList.add('indestructible-wall');
+                } else if (map[row][col] === 3) {
+                    cell.classList.add('empty-space');
+
+                    // Create an img element for the power-up
+                    const powerUpKey = `${col},${row}`;
+                    const powerUpType = powerUps[powerUpKey];
+
+                    const powerUpElement = document.createElement('img');
+                    powerUpElement.classList.add('power-up-icon');
+
+                    if (powerUpType === 'bombCapacity') {
+                        powerUpElement.src = '/power_up_max_bombs.png';
+                    } else if (powerUpType === 'blastRadius') {
+                        powerUpElement.src = '/power_up_extra_blast_radius.png';
+                    } else if (powerUpType === 'speed') {
+                        powerUpElement.src = '/speed_powerup.png';
+                    }
+
+                    cell.appendChild(powerUpElement);
+                }
+                gameElement.appendChild(cell);
+            }
+        }
+    }
+
+    function clearAllBombs() {
+        const bombElements = document.querySelectorAll('.bomb');
+        bombElements.forEach(bomb => bomb.remove());
+    }
+
+    function isWalkable(x, y) {
+        if (x < 0 || x >= 15 || y < 0 || y >= 15) return false;
+
+        const tile = map[y][x];
+        // Check if there's a bomb at this position
+        const cell = gameElement.children[y * 15 + x];
+        const hasBomb = cell.querySelector('.bomb');
+        // Return true if tile is empty, a power-up, and there's no bomb
+        return (tile === 0 || tile === 3) && !hasBomb;
+    }
+
+    function updatePlayerPosition(playerId, x, y, direction = 'down') {
+        // Remove existing player sprite
+        const oldPlayerElement = document.querySelector(`.cell .${playerId}`);
+        if (oldPlayerElement) oldPlayerElement.remove();
+
+        // Calculate the index in the grid
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+
+        if (!cell) {
+            console.error(`Cell at index ${index} is undefined. x: ${x}, y: ${y}`);
+            return;
+        }
+
+        // Map 'ArrowUp' to 'up', etc.
+        const directionMap = {
+            'ArrowUp': 'up',
+            'ArrowDown': 'down',
+            'ArrowLeft': 'left',
+            'ArrowRight': 'right'
+        };
+
+        const mappedDirection = directionMap[direction] || direction;
+
+        const playerElement = document.createElement('img');
+        // Use the mapped image name
+        const imageName = playerImages[playerId] || 'default_player';
+        playerElement.src = `/${imageName}_${mappedDirection}.png`;
+        playerElement.classList.add('player', playerId);
+        cell.appendChild(playerElement);
+
+        // Update local player state
+        players[playerId] = players[playerId] || {};
+        players[playerId].x = x;
+        players[playerId].y = y;
+        players[playerId].direction = mappedDirection;
+    }
+
+    function removePlayer(playerId) {
+        const playerElement = document.querySelector(`.cell .${playerId}`);
+        if (playerElement) playerElement.remove();
+        delete players[playerId];
+    }
+
+    function placeBomb(x, y) {
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+
+        if (!cell) {
+            console.error(`Cell at index ${index} is undefined. x: ${x}, y: ${y}`);
+            return;
+        }
+
+        const bombElement = document.createElement('img');
+        bombElement.src = '/bomb_sprite.png';
+        bombElement.classList.add('bomb');
+        cell.appendChild(bombElement);
+    }
+
+    function explodeBomb(x, y, destroyedBricks, newPowerUps, explosionPositions) {
+        // Remove bomb sprite at the center
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+        const bombElement = cell.querySelector('.bomb');
+        if (bombElement) {
+            bombElement.remove();
+        }
+
+        // Play bomb explosion sound
+        const bombExplosionSound = document.getElementById('bomb-explosion-sound');
+        if (bombExplosionSound) {
+            bombExplosionSound.currentTime = 0; // Rewind to start
+            bombExplosionSound.play();
+        }
+
+        // Display explosion effect in all positions
+        explosionPositions.forEach(pos => {
+            const idx = pos.y * 15 + pos.x;
+            const explosionCell = gameElement.children[idx];
+
+            if (!explosionCell) {
+                console.error(`Cell at index ${idx} is undefined. x: ${pos.x}, y: ${pos.y}`);
+                return;
+            }
+
+            // Display explosion effect
+            displayExplosion(explosionCell);
+
+            // If the tile was a brick wall, update it
+            if (map[pos.y][pos.x] === 1) {
+                map[pos.y][pos.x] = 0;
+                explosionCell.classList.remove('brick-wall');
+                explosionCell.classList.add('empty-space');
+            }
+
+            // Remove bomb sprites in the explosion area
+            const bombInCell = explosionCell.querySelector('.bomb');
+            if (bombInCell) {
+                bombInCell.remove();
+            }
+        });
+
+        // Handle new power-ups
+        newPowerUps.forEach(powerUp => {
+            const idx = powerUp.y * 15 + powerUp.x;
+            const powerUpCell = gameElement.children[idx];
+            const powerUpKey = `${powerUp.x},${powerUp.y}`;
+            powerUps[powerUpKey] = powerUp.type; // Update powerUps object
+            map[powerUp.y][powerUp.x] = 3; // Update map array
+
+            // Remove any existing classes (e.g., empty-space)
+            powerUpCell.className = 'cell empty-space';
+
+            // Create an img element for the power-up icon
+            const powerUpElement = document.createElement('img');
+            powerUpElement.classList.add('power-up-icon');
+
+            if (powerUp.type === 'bombCapacity') {
+                powerUpElement.src = '/power_up_max_bombs.png';
+            } else if (powerUp.type === 'blastRadius') {
+                powerUpElement.src = '/power_up_extra_blast_radius.png';
+            } else if (powerUp.type === 'speed') {
+                powerUpElement.src = '/speed_powerup.png';
+            }
+
+            powerUpCell.appendChild(powerUpElement);
+        });
+    }
+
+    function displayExplosion(cell) {
+        const explosionElement = document.createElement('div');
+        explosionElement.classList.add('explosion-effect');
+        cell.appendChild(explosionElement);
+        setTimeout(() => {
+            explosionElement.remove();
+        }, 1000);
+    }
+
+    function updatePlayerList(playersData) {
+        playerListElement.innerHTML = ''; // Clear existing list
+        for (const pid in playersData) {
+            const player = playersData[pid];
+            const listItem = document.createElement('li');
+
+            // Create player icon
+            const playerIcon = document.createElement('img');
+            const imageName = `player${player.playerNumber}_down.png`; // Use the down image
+            playerIcon.src = `/${imageName}`;
+            playerIcon.alt = `Player ${player.playerNumber}`;
+            listItem.appendChild(playerIcon);
+
+            const safeNickname = escapeHtml(player.nickname || `Player ${player.playerNumber}`);
+            const textNode = document.createTextNode(`${safeNickname}: ${player.score} points`);
+            listItem.appendChild(textNode);
+
+            playerListElement.appendChild(listItem);
+        }
+    }
+
+    function startMovement() {
+        if (movementInterval) return;
+        movementInterval = setInterval(() => {
+            if (Object.keys(keysPressed).length === 0) {
+                stopMovement();
+                return;
+            }
+            let direction = null;
+            if (keysPressed['ArrowUp']) direction = 'ArrowUp';
+            else if (keysPressed['ArrowDown']) direction = 'ArrowDown';
+            else if (keysPressed['ArrowLeft']) direction = 'ArrowLeft';
+            else if (keysPressed['ArrowRight']) direction = 'ArrowRight';
+
+            if (direction) {
+                // Calculate new position
+                let newX = players[playerId].x;
+                let newY = players[playerId].y;
+
+                if (direction === 'ArrowUp') newY--;
+                if (direction === 'ArrowDown') newY++;
+                if (direction === 'ArrowLeft') newX--;
+                if (direction === 'ArrowRight') newX++;
+
+                if (isWalkable(newX, newY)) {
+                    // Send move message
+                    ws.send(JSON.stringify({ type: 'move', direction: direction, playerId: playerId, password: password }));
+                }
+            }
+        }, movementSpeed);
+    }
+
+    function stopMovement() {
+        if (movementInterval) {
+            clearInterval(movementInterval);
+            movementInterval = null;
+        }
+    }
+
+    function updatePlayerSpeed() {
+        const player = players[playerId];
+        if (player.speed === 1) {
+            movementSpeed = 250;
+        } else if (player.speed === 2) {
+            movementSpeed = 219;
+        } else if (player.speed === 3) {
+            movementSpeed = 188;
+        } else if (player.speed >= 4) {
+            movementSpeed = 156;
+        }
+        // Restart movement interval to apply new speed
+        if (movementInterval) {
+            stopMovement();
+            startMovement();
+        }
+    }
+
+    function showMessage(text) {
+        const messageContainer = document.getElementById('message-container');
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('game-message');
+        messageElement.textContent = text;
+        
+        // Add a special class for hit messages
+        if (text.includes('hit') || text.includes('blew yourself up')) {
+            messageElement.classList.add('hit-message');
+        }
+        
+        messageContainer.appendChild(messageElement);
+        
+        // Remove the message after some time
+        setTimeout(() => {
+            messageElement.remove();
+        }, 5000); // Display message for 5 seconds
+    }
+
+    function joinGame() {
+        // Extract password from URL
+        const urlParts = window.location.pathname.split('/');
+        password = urlParts[urlParts.length - 1];
+
+        // Generate a unique playerId
+        playerId = 'player-' + Math.random().toString(36).substr(2, 9);
+
+        if (ws && ws.readyState !== WebSocket.CLOSED) {
+            ws.close();
+        }
+
+        // Determine the correct WebSocket protocol
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        ws = new WebSocket(`${protocol}://${window.location.host}`);
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ type: 'join', playerId: playerId, password: password, nickname: nickname }));
+            reconnectAttempts = 0;
+            statusElement.textContent = "Connected to Bomberman!";
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'start') {
+                // Store your player number
+                if (message.playerNumber) {
+                    const imageName = `player${message.playerNumber}`;
+                    playerImages[playerId] = imageName;
+                }
+
+                // Initialize map and power-ups
+                map = message.map;
+                powerUps = {};
+                message.powerUps.forEach(powerUp => {
+                    const powerUpKey = `${powerUp.x},${powerUp.y}`;
+                    powerUps[powerUpKey] = powerUp.type;
+                });
+                initializeGameGrid();
+
+                // Update positions of all players
+                for (const pid in message.players) {
+                    const player = message.players[pid];
+                    // Map other players' IDs to image names
+                    if (!playerImages[pid]) {
+                        const imageName = `player${player.playerNumber}`;
+                        playerImages[pid] = imageName;
+                    }
+                    updatePlayerPosition(pid, player.x, player.y, 'down');
+                    players[pid] = players[pid] || {};
+                    players[pid].speed = player.speed || 1;
+                    players[pid].nickname = player.nickname || `Player ${player.playerNumber}`;
+                }
+
+                // Update player list
+                updatePlayerList(message.players);
+
+                // Update movement speed
+                updatePlayerSpeed();
+
+            } else if (message.type === 'newMap') {
+                // Clear existing bombs
+                clearAllBombs();
+
+                // Handle new map
+                map = message.map;
+                powerUps = {};
+                message.powerUps.forEach(powerUp => {
+                    const powerUpKey = `${powerUp.x},${powerUp.y}`;
+                    powerUps[powerUpKey] = powerUp.type;
+                });
+                initializeGameGrid();
+
+                // Update players' positions and reset local player properties
+                for (const pid in message.players) {
+                    const player = message.players[pid];
+                    players[pid] = players[pid] || {};
+                    players[pid].x = player.x;
+                    players[pid].y = player.y;
+                    players[pid].speed = player.speed || 1;
+                    players[pid].nickname = player.nickname || `Player ${player.playerNumber}`;
+                    updatePlayerPosition(pid, player.x, player.y, 'down');
+                }
+
+                // Update movement speed
+                updatePlayerSpeed();
+
+                // Update player list
+                updatePlayerList(message.players);
+
+                showMessage("A new map has been generated!");
+
+            } else if (message.type === 'update') {
+                updatePlayerPosition(message.playerId, message.x, message.y, message.direction);
+            } else if (message.type === 'newPlayer') {
+                // Map new player's ID to image names
+                const newPlayerId = message.playerId;
+                const imageName = `player${message.playerNumber}`;
+                playerImages[newPlayerId] = imageName;
+                updatePlayerPosition(newPlayerId, message.x, message.y, 'down');
+
+                // Store nickname
+                players[newPlayerId] = players[newPlayerId] || {};
+                players[newPlayerId].nickname = message.nickname || `Player ${message.playerNumber}`;
+
+                // Update player list
+                updatePlayerList(message.players);
+
+            } else if (message.type === 'playerLeft') {
+                removePlayer(message.playerId);
+                // Update player list
+                updatePlayerList(message.players);
+
+            } else if (message.type === 'bombPlaced') {
+                placeBomb(message.x, message.y);
+
+            } else if (message.type === 'bombExploded') {
+                explodeBomb(
+                    message.x,
+                    message.y,
+                    message.destroyedBricks,
+                    message.newPowerUps,
+                    message.explosionPositions
+                );
+            } else if (message.type === 'playerHit') {
+                const victimId = message.playerId;
+                const attackerId = message.by;
+                const victimNickname = escapeHtml(players[victimId].nickname || `Player ${players[victimId].playerNumber}`);
+                const attackerNickname = attackerId ? escapeHtml(players[attackerId].nickname || `Player ${players[attackerId].playerNumber}`) : 'Unknown';
+                
+                // Update player position
+                updatePlayerPosition(victimId, message.x, message.y, 'down');
+                
+                // Display appropriate message
+                if (victimId === playerId) {
+                    if (attackerId === playerId) {
+                        showMessage(`You blew yourself up!`);
+                    } else {
+                        showMessage(`You were hit by ${attackerNickname}!`);
+                    }
+                } else {
+                    if (attackerId === victimId) {
+                        showMessage(`${victimNickname} blew themselves up!`);
+                    } else {
+                        showMessage(`${victimNickname} was hit by ${attackerNickname}!`);
+                    }
+                }
+                
+                // Trigger visual effects for the victim
+                triggerPlayerHitEffect(victimId);
+            } else if (message.type === 'powerUpCollected') {
+                const idx = message.y * 15 + message.x;
+                const cell = gameElement.children[idx];
+                const powerUpKey = `${message.x},${message.y}`;
+                delete powerUps[powerUpKey]; // Remove from powerUps object
+                map[message.y][message.x] = 0; // Update map array
+
+                // Remove power-up icon from the cell
+                const powerUpElement = cell.querySelector('.power-up-icon');
+                if (powerUpElement) {
+                    powerUpElement.remove();
+                }
+
+                // Play power-up sound
+                const powerupSound = document.getElementById('powerup-sound');
+                if (powerupSound) {
+                    powerupSound.currentTime = 0; // Rewind to start
+                    powerupSound.play();
+                }
+            } else if (message.type === 'updatePlayerList') {
+                updatePlayerList(message.players);
+                // Update local player's speed
+                if (players[playerId]) {
+                    players[playerId].speed = message.players[playerId].speed || 1;
+                    updatePlayerSpeed();
+                }
+            }
+            // Handle other message types as needed
+        };
+
+        ws.onerror = (error) => console.error("WebSocket error:", error);
+
+        ws.onclose = () => {
+            if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                setTimeout(joinGame, reconnectDelay * Math.pow(2, reconnectAttempts));
+            } else {
+                console.error("Max reconnection attempts reached.");
+                statusElement.textContent = "Connection lost. Unable to reconnect.";
+            }
+        };
+
+        // Listen for key presses
+        document.addEventListener('keydown', (event) => {
+            if (event.key === ' ') {
+                event.preventDefault();
+                // Send placeBomb message
+                ws.send(JSON.stringify({ type: 'placeBomb', playerId: playerId, password: password }));
+            } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                if (!keysPressed[event.key]) {
+                    event.preventDefault();
+                    keysPressed[event.key] = true;
+                    // Send move immediately
+                    ws.send(JSON.stringify({ type: 'move', direction: event.key, playerId: playerId, password: password }));
+                    startMovement();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                event.preventDefault();
+                delete keysPressed[event.key];
+                if (Object.keys(keysPressed).length === 0) {
+                    stopMovement();
+                }
+            }
+        });
+
+    }
+
+    function triggerPlayerHitEffect(victimId) {
+        // Select the player's DOM element
+        const playerElement = document.querySelector(`.cell .${victimId}`);
+        if (!playerElement) return;
+    
+        // Add the 'hit' class to trigger the flash effect
+        playerElement.classList.add('hit');
+    
+        // Listen for the end of the animation to remove the 'hit' class
+        playerElement.addEventListener('animationend', () => {
+            playerElement.classList.remove('hit');
+        }, { once: true });
+    
+        // Create an explosion element
+        const explosion = document.createElement('div');
+        explosion.classList.add('explosion-effect');
+    
+        // Append the explosion to the player's cell
+        playerElement.parentElement.appendChild(explosion);
+    
+        // Play the hit sound (optional)
+        const hitSound = new Audio('/hit_sound.wav'); // Ensure this file exists
+        hitSound.play();
+    
+        // Remove the explosion element after the animation completes (e.g., 1s)
+        setTimeout(() => {
+            explosion.remove();
+        }, 1000);
+    }
+
+    window.onload = () => {
+        const nicknameOverlay = document.getElementById('nickname-overlay');
+        const nicknameInput = document.getElementById('nickname-input');
+        const nicknameSubmit = document.getElementById('nickname-submit');
+
+        nicknameSubmit.addEventListener('click', () => {
+            nickname = nicknameInput.value.trim();
+            if (nickname.length === 0) {
+                alert('Please enter a nickname.');
+                return;
+            }
+            // Hide the overlay
+            nicknameOverlay.style.display = 'none';
+            // Now join the game
+            joinGame();
+        });
+    };
+</script>
+</body>
+</html>
