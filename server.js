@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 
 // Create HTTP server and bind to all interfaces
 const server = http.createServer(app);
@@ -688,5 +688,5 @@ function getLocalIPAddress() {
             }
         }
     }
-    return '127.0.0.1';
+    return '0.0.0.0';
 }
