@@ -3,7 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
-const os = require('os'); // Moved to the top for consistency
+const os = require('os');
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -215,7 +215,7 @@ function findPathToVisited(map, visited, startX, startY) {
 app.get('/create-game', (req, res) => {
     const password = uuidv4();
     const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers.host; // e.g., 'yourdomain.com' or '123.45.67.89:3000'
+    const host = req.headers.host;
     const gameUrl = `${protocol}://${host}/game/${password}`;
 
     games[password] = {
@@ -602,6 +602,17 @@ function explodeBomb(game, bomb, explodedBombs) {
         explosionPositions: explosionPositions // Include explosion positions
     });
 
+    // Handle chain reactions sequentially
+    explosionPositions.forEach(pos => {
+        game.bombs.forEach(otherBomb => {
+            if (otherBomb !== bomb && otherBomb.x === pos.x && otherBomb.y === pos.y && !explodedBombs.has(otherBomb)) {
+                setTimeout(() => {
+                    explodeBomb(game, otherBomb, explodedBombs);
+                }, 500); // 500ms delay for sequential explosions
+            }
+        });
+    });
+
     // Check for players in the bomb's blast radius
     explosionPositions.forEach(pos => {
         Object.keys(game.players).forEach(pId => {
@@ -636,13 +647,6 @@ function explodeBomb(game, bomb, explodedBombs) {
                     type: 'updatePlayerList',
                     players: game.players
                 });
-            }
-        });
-
-        // Check for bombs at this position for chain reactions
-        game.bombs.forEach(otherBomb => {
-            if (otherBomb !== bomb && otherBomb.x === pos.x && otherBomb.y === pos.y) {
-                explodeBomb(game, otherBomb, explodedBombs);
             }
         });
     });
@@ -691,7 +695,7 @@ function isAllBricksDestroyed(map) {
 }
 
 // Start the server and listen on all network interfaces
-server.listen(port, '0.0.0.0', () => { // Changed from '127.0.0.1' to '0.0.0.0'
+server.listen(port, '0.0.0.0', () => {
     console.log(`Server is running on port ${port}`);
     console.log(`Accessible online at http://${getLocalIPAddress()}:${port}`);
 });
@@ -706,7 +710,7 @@ function getLocalIPAddress() {
             }
         }
     }
-    return '0.0.0.0'; // Changed from '127.0.0.1' to '0.0.0.0'
+    return '0.0.0.0';
 }
 
 function gracefulShutdown() {
@@ -729,12 +733,10 @@ process.on('SIGINT', gracefulShutdown);
 // Handle Uncaught Exceptions and Unhandled Rejections to prevent server crashes
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
-    // Optionally, you can perform cleanup here before exiting
-    // process.exit(1); // Uncomment to exit the process after logging
+    // process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    // Optionally, you can perform cleanup here before exiting
-    // process.exit(1); // Uncomment to exit the process after logging
+    // process.exit(1);
 });
