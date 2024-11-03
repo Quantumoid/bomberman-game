@@ -3,6 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const os = require('os'); // Moved to the top for consistency
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -16,6 +17,11 @@ const games = {};
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Health Check Endpoint
+app.get('/healthyornot', (req, res) => {
+    res.status(200).send('OK');
+});
 
 // Initialize the game map
 function createInitialMap() {
@@ -220,7 +226,13 @@ app.get('/create-game', (req, res) => {
         clients: new Set(),
         createdAt: new Date(),
         map: createRandomMap(),
-        powerUps: {} // Keyed by position 'x,y'
+        powerUps: {},
+        timeout: setTimeout(() => {
+            if (Object.keys(games[password].players).length === 0) {
+                console.log(`No players joined game ${password} within 5 minutes. Deleting game.`);
+                delete games[password];
+            }
+        }, 300000) // 5 minutes in milliseconds
     };
     console.log(`Game created with password: ${password}`);
     res.json({ url: gameUrl });
@@ -293,6 +305,12 @@ wss.on('connection', (ws) => {
                 };
 
                 game.clients.add(ws);
+
+                // Clear the game timeout since a player has joined
+                if (game.timeout) {
+                    clearTimeout(game.timeout);
+                    game.timeout = null;
+                }
 
                 // Send the player's number and current game state to the client
                 ws.send(JSON.stringify({
@@ -446,6 +464,10 @@ wss.on('connection', (ws) => {
                 // If no clients remain, delete the game
                 if (game.clients.size === 0) {
                     console.log(`No more players in game ${gamePassword}. Deleting game.`);
+                    // Clear any existing timeout to prevent memory leaks
+                    if (game.timeout) {
+                        clearTimeout(game.timeout);
+                    }
                     delete games[gamePassword];
                 }
             }
@@ -599,7 +621,6 @@ function explodeBomb(game, bomb, explodedBombs) {
                 // Only award point if the player hit is not the bomb owner
                 if (bomb.owner !== pId) {
                     game.players[bomb.owner].score += 1;
-                    console.log(`Player ${game.players[bomb.owner].nickname} scored a point!`);
                 }
 
                 broadcastToGame(game.password, {
@@ -615,8 +636,6 @@ function explodeBomb(game, bomb, explodedBombs) {
                     type: 'updatePlayerList',
                     players: game.players
                 });
-
-                console.log(`Player ${targetPlayer.nickname} was hit by ${bomb.owner ? game.players[bomb.owner].nickname : 'Unknown'}`);
             }
         });
 
@@ -672,14 +691,13 @@ function isAllBricksDestroyed(map) {
 }
 
 // Start the server and listen on all network interfaces
-server.listen(port, '0.0.0.0', () => {
+server.listen(port, '0.0.0.0', () => { // Changed from '127.0.0.1' to '0.0.0.0'
     console.log(`Server is running on port ${port}`);
     console.log(`Accessible online at http://${getLocalIPAddress()}:${port}`);
 });
 
 // Function to get the local IP address of the server
 function getLocalIPAddress() {
-    const os = require('os');
     const networkInterfaces = os.networkInterfaces();
     for (const interfaceName of Object.keys(networkInterfaces)) {
         for (const iface of networkInterfaces[interfaceName]) {
@@ -688,5 +706,35 @@ function getLocalIPAddress() {
             }
         }
     }
-    return '0.0.0.0';
+    return '0.0.0.0'; // Changed from '127.0.0.1' to '0.0.0.0'
 }
+
+function gracefulShutdown() {
+    console.log('Received kill signal, shutting down gracefully.');
+    server.close(() => {
+        console.log('Closed out remaining connections.');
+        process.exit(0);
+    });
+
+    // Force shutdown after 10 seconds
+    setTimeout(() => {
+        console.error('Could not close connections in time, forcefully shutting down');
+        process.exit(1);
+    }, 10000);
+}
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
+// Handle Uncaught Exceptions and Unhandled Rejections to prevent server crashes
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    // Optionally, you can perform cleanup here before exiting
+    // process.exit(1); // Uncomment to exit the process after logging
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Optionally, you can perform cleanup here before exiting
+    // process.exit(1); // Uncomment to exit the process after logging
+});
