@@ -777,7 +777,7 @@
                 }
             } else if (message.type === 'updatePlayerList') {
                 updatePlayerList(message.players);
-                // Update local player's speed
+                // Update player's speed
                 if (players[playerId]) {
                     players[playerId].speed = message.players[playerId].speed || 1;
                     updatePlayerSpeed();
