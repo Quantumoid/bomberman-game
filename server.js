@@ -230,6 +230,12 @@ app.get('/create-game', (req, res) => {
         timeout: setTimeout(() => {
             if (Object.keys(games[password].players).length === 0) {
                 console.log(`No players joined game ${password} within 5 minutes. Deleting game.`);
+                // Clear all bomb timeouts
+                games[password].bombs.forEach(bomb => {
+                    if (bomb.timerId) {
+                        clearTimeout(bomb.timerId);
+                    }
+                });
                 delete games[password];
             }
         }, 300000) // 5 minutes in milliseconds
@@ -430,7 +436,7 @@ wss.on('connection', (ws) => {
 
                 // Store the timeout ID in the bomb object
                 bomb.timerId = setTimeout(() => {
-                    explodeBomb(game, bomb, new Set());
+                    explodeBomb(gamePassword, bomb, new Set());
                 }, 3000);
             }
 
@@ -464,7 +470,13 @@ wss.on('connection', (ws) => {
                 // If no clients remain, delete the game
                 if (game.clients.size === 0) {
                     console.log(`No more players in game ${gamePassword}. Deleting game.`);
-                    // Clear any existing timeout to prevent memory leaks
+                    // Clear all bomb timeouts
+                    game.bombs.forEach(bomb => {
+                        if (bomb.timerId) {
+                            clearTimeout(bomb.timerId);
+                        }
+                    });
+                    // Clear game creation timeout
                     if (game.timeout) {
                         clearTimeout(game.timeout);
                     }
@@ -514,171 +526,182 @@ function broadcastToGame(gamePassword, data, excludeWs = null) {
     if (game) {
         game.clients.forEach((client) => {
             if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify(data));
+                try {
+                    client.send(JSON.stringify(data));
+                } catch (error) {
+                    console.error('Error broadcasting to client:', error);
+                }
             }
         });
     }
 }
 
 // Function to handle bomb explosions with chain reactions
-function explodeBomb(game, bomb, explodedBombs) {
+function explodeBomb(gamePassword, bomb, explodedBombs) {
+    const game = games[gamePassword];
+    if (!game) return;
+
     if (explodedBombs.has(bomb)) return;
     explodedBombs.add(bomb);
 
-    // Clear the bomb's timeout if it exists
-    if (bomb.timerId) {
-        clearTimeout(bomb.timerId);
-        bomb.timerId = null;
-    }
-
-    // Remove bomb from game
-    game.bombs = game.bombs.filter(b => b !== bomb);
-    const player = game.players[bomb.owner];
-    if (player) {
-        player.currentBombs--;
-    }
-
-    // Update the map and notify clients
-    const destroyedBricks = [];
-    const explosionPositions = [{ x: bomb.x, y: bomb.y }];
-
-    const directions = [
-        { dx: -1, dy: 0 }, // Left
-        { dx: 1, dy: 0 },  // Right
-        { dx: 0, dy: -1 }, // Up
-        { dx: 0, dy: 1 }   // Down
-    ];
-
-    const newPowerUps = []; // Collect new power-ups generated during this explosion
-
-    directions.forEach(dir => {
-        for (let i = 1; i <= bomb.radius; i++) {
-            const pos = { x: bomb.x + dir.dx * i, y: bomb.y + dir.dy * i };
-            if (pos.x >= 0 && pos.x < 15 && pos.y >= 0 && pos.y < 15) {
-                const tile = game.map[pos.y][pos.x];
-                if (tile === 2) {
-                    // Stop if the explosion hits an indestructible wall
-                    break;
-                } else {
-                    explosionPositions.push(pos);
-                    if (tile === 1) {
-                        // Destroy brick wall
-                        game.map[pos.y][pos.x] = 0;
-                        destroyedBricks.push({ x: pos.x, y: pos.y });
-
-                        // Random chance to generate a power-up
-                        if (Math.random() < 0.3) { // 30% chance
-                            const powerUpTypeRandom = Math.random();
-                            let powerUpType = 'bombCapacity';
-                            if (powerUpTypeRandom < 0.33) {
-                                powerUpType = 'bombCapacity';
-                            } else if (powerUpTypeRandom < 0.66) {
-                                powerUpType = 'blastRadius';
-                            } else {
-                                powerUpType = 'speed';
-                            }
-
-                            game.powerUps[`${pos.x},${pos.y}`] = powerUpType;
-                            game.map[pos.y][pos.x] = 3; // Power-up tile
-                            newPowerUps.push({ x: pos.x, y: pos.y, type: powerUpType });
-                        }
-                        // Stop after destroying a brick wall
-                        break;
-                    }
-                }
-            } else {
-                break;
-            }
+    try {
+        // Clear the bomb's timeout if it exists
+        if (bomb.timerId) {
+            clearTimeout(bomb.timerId);
+            bomb.timerId = null;
         }
-    });
 
-    // Include explosionPositions in the message
-    broadcastToGame(game.password, {
-        type: 'bombExploded',
-        x: bomb.x,
-        y: bomb.y,
-        destroyedBricks: destroyedBricks,
-        newPowerUps: newPowerUps,
-        explosionPositions: explosionPositions // Include explosion positions
-    });
+        // Remove bomb from game
+        game.bombs = game.bombs.filter(b => b !== bomb);
+        const player = game.players[bomb.owner];
+        if (player) {
+            player.currentBombs--;
+        }
 
-    // Handle chain reactions sequentially
-    explosionPositions.forEach(pos => {
-        game.bombs.forEach(otherBomb => {
-            if (otherBomb !== bomb && otherBomb.x === pos.x && otherBomb.y === pos.y && !explodedBombs.has(otherBomb)) {
-                setTimeout(() => {
-                    explodeBomb(game, otherBomb, explodedBombs);
-                }, 500); // 500ms delay for sequential explosions
-            }
-        });
-    });
+        // Update the map and notify clients
+        const destroyedBricks = [];
+        const explosionPositions = [{ x: bomb.x, y: bomb.y }];
 
-    // Check for players in the bomb's blast radius
-    explosionPositions.forEach(pos => {
-        Object.keys(game.players).forEach(pId => {
-            const targetPlayer = game.players[pId];
-            if (targetPlayer.x === pos.x && targetPlayer.y === pos.y && !targetPlayer.invincible) {
-                // Reset player position
-                const initialPosition = getPlayerInitialPosition(targetPlayer.playerNumber);
-                targetPlayer.x = initialPosition.x;
-                targetPlayer.y = initialPosition.y;
+        const directions = [
+            { dx: -1, dy: 0 }, // Left
+            { dx: 1, dy: 0 },  // Right
+            { dx: 0, dy: -1 }, // Up
+            { dx: 0, dy: 1 }   // Down
+        ];
 
-                // Set invincibility
-                targetPlayer.invincible = true;
-                setTimeout(() => {
-                    targetPlayer.invincible = false;
-                }, 5000); // 5 seconds of invincibility
+        const newPowerUps = []; // Collect new power-ups generated during this explosion
 
-                // Only award point if the player hit is not the bomb owner
-                if (bomb.owner !== pId) {
-                    game.players[bomb.owner].score += 1;
+        directions.forEach(dir => {
+            for (let i = 1; i <= bomb.radius; i++) {
+                const pos = { x: bomb.x + dir.dx * i, y: bomb.y + dir.dy * i };
+                if (pos.x >= 0 && pos.x < 15 && pos.y >= 0 && pos.y < 15) {
+                    const tile = game.map[pos.y][pos.x];
+                    if (tile === 2) {
+                        // Stop if the explosion hits an indestructible wall
+                        break;
+                    } else {
+                        explosionPositions.push(pos);
+                        if (tile === 1) {
+                            // Destroy brick wall
+                            game.map[pos.y][pos.x] = 0;
+                            destroyedBricks.push({ x: pos.x, y: pos.y });
+
+                            // Random chance to generate a power-up
+                            if (Math.random() < 0.3) { // 30% chance
+                                const powerUpTypeRandom = Math.random();
+                                let powerUpType = 'bombCapacity';
+                                if (powerUpTypeRandom < 0.33) {
+                                    powerUpType = 'bombCapacity';
+                                } else if (powerUpTypeRandom < 0.66) {
+                                    powerUpType = 'blastRadius';
+                                } else {
+                                    powerUpType = 'speed';
+                                }
+
+                                game.powerUps[`${pos.x},${pos.y}`] = powerUpType;
+                                game.map[pos.y][pos.x] = 3; // Power-up tile
+                                newPowerUps.push({ x: pos.x, y: pos.y, type: powerUpType });
+                            }
+                            // Stop after destroying a brick wall
+                            break;
+                        }
+                    }
+                } else {
+                    break;
                 }
-
-                broadcastToGame(game.password, {
-                    type: 'playerHit',
-                    playerId: pId,
-                    by: bomb.owner,
-                    x: targetPlayer.x,
-                    y: targetPlayer.y
-                });
-
-                // Update player scores on clients
-                broadcastToGame(game.password, {
-                    type: 'updatePlayerList',
-                    players: game.players
-                });
             }
         });
-    });
 
-    // Check if all brick walls are destroyed
-    if (isAllBricksDestroyed(game.map)) {
-        // Generate a new map
-        game.map = createRandomMap();
-        game.powerUps = {}; // Reset power-ups
-
-        // Reset players' positions and properties
-        Object.keys(game.players).forEach(pId => {
-            const player = game.players[pId];
-            const initialPosition = getPlayerInitialPosition(player.playerNumber);
-            player.x = initialPosition.x;
-            player.y = initialPosition.y;
-            player.maxBombs = 1;
-            player.bombRadius = 1;
-            player.currentBombs = 0;
-            player.speed = 1;
-            player.invincible = false;
+        // Include explosionPositions in the message
+        broadcastToGame(gamePassword, {
+            type: 'bombExploded',
+            x: bomb.x,
+            y: bomb.y,
+            destroyedBricks: destroyedBricks,
+            newPowerUps: newPowerUps,
+            explosionPositions: explosionPositions // Include explosion positions
         });
 
-        console.log(`All brick walls destroyed in game ${game.password}. Generating a new map.`);
-
-        // Notify clients about the new map
-        broadcastToGame(game.password, {
-            type: 'newMap',
-            map: game.map,
-            players: game.players,
-            powerUps: [] // Assuming no initial power-ups in new map
+        // Handle chain reactions sequentially
+        explosionPositions.forEach(pos => {
+            game.bombs.forEach(otherBomb => {
+                if (otherBomb !== bomb && otherBomb.x === pos.x && otherBomb.y === pos.y && !explodedBombs.has(otherBomb)) {
+                    setTimeout(() => {
+                        explodeBomb(gamePassword, otherBomb, explodedBombs);
+                    }, 500); // 500ms delay for sequential explosions
+                }
+            });
         });
+
+        // Check for players in the bomb's blast radius
+        explosionPositions.forEach(pos => {
+            Object.keys(game.players).forEach(pId => {
+                const targetPlayer = game.players[pId];
+                if (targetPlayer.x === pos.x && targetPlayer.y === pos.y && !targetPlayer.invincible) {
+                    // Reset player position
+                    const initialPosition = getPlayerInitialPosition(targetPlayer.playerNumber);
+                    targetPlayer.x = initialPosition.x;
+                    targetPlayer.y = initialPosition.y;
+
+                    // Set invincibility
+                    targetPlayer.invincible = true;
+                    setTimeout(() => {
+                        targetPlayer.invincible = false;
+                    }, 5000); // 5 seconds of invincibility
+
+                    // Only award point if the player hit is not the bomb owner
+                    if (bomb.owner !== pId) {
+                        game.players[bomb.owner].score += 1;
+                    }
+
+                    broadcastToGame(gamePassword, {
+                        type: 'playerHit',
+                        playerId: pId,
+                        by: bomb.owner,
+                        x: targetPlayer.x,
+                        y: targetPlayer.y
+                    });
+
+                    // Update player scores on clients
+                    broadcastToGame(gamePassword, {
+                        type: 'updatePlayerList',
+                        players: game.players
+                    });
+                }
+            });
+        });
+
+        // Check if all brick walls are destroyed
+        if (isAllBricksDestroyed(game.map)) {
+            // Generate a new map
+            game.map = createRandomMap();
+            game.powerUps = {}; // Reset power-ups
+
+            // Reset players' positions and properties
+            Object.keys(game.players).forEach(pId => {
+                const player = game.players[pId];
+                const initialPosition = getPlayerInitialPosition(player.playerNumber);
+                player.x = initialPosition.x;
+                player.y = initialPosition.y;
+                player.maxBombs = 1;
+                player.bombRadius = 1;
+                player.currentBombs = 0;
+                player.speed = 1;
+                player.invincible = false;
+            });
+
+            console.log(`All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
+
+            // Notify clients about the new map
+            broadcastToGame(gamePassword, {
+                type: 'newMap',
+                map: game.map,
+                players: game.players,
+                powerUps: [] // Assuming no initial power-ups in new map
+            });
+        }
+    } catch (error) {
+        console.error('Error during bomb explosion:', error);
     }
 }
 
