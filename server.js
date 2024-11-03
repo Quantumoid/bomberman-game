@@ -12,6 +12,10 @@ const port = process.env.PORT || 10000;
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+// Increase server timeouts to prevent Render from marking it unhealthy
+server.keepAliveTimeout = 120000; // 2 minutes
+server.headersTimeout = 120000; // 2 minutes
+
 // Store all active games
 const games = {};
 
