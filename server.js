@@ -231,6 +231,12 @@ function createRandomMap() {
                     }
                 }
 
+                // Check if all starting positions are connected
+                const connected = areAllStartingPositionsConnected(map);
+                if (!connected) {
+                    throw new Error('Generated map does not connect all starting positions.');
+                }
+
                 if (!allReachable) {
                     // Recursive call to ensure connectivity after adjustments
                     return ensureFullConnectivity(map);
@@ -241,6 +247,43 @@ function createRandomMap() {
 
             function isPositionValid(x, y, map) {
                 return y >= 0 && y < map.length && x >= 0 && x < map[0].length;
+            }
+
+            function areAllStartingPositionsConnected(map) {
+                const rows = map.length;
+                const cols = map[0].length;
+                const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+                const queue = [];
+
+                // Start BFS from the first starting position
+                const startPos = playerStartingPositions[0];
+                queue.push(startPos);
+                visited[startPos.y][startPos.x] = true;
+
+                while (queue.length > 0) {
+                    const { x, y } = queue.shift();
+                    const neighbors = [
+                        { x: x - 1, y },
+                        { x: x + 1, y },
+                        { x, y: y - 1 },
+                        { x, y: y + 1 }
+                    ];
+
+                    neighbors.forEach(({ x: nx, y: ny }) => {
+                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx] && map[ny][nx] !== 2) {
+                            visited[ny][nx] = true;
+                            queue.push({ x: nx, y: ny });
+                        }
+                    });
+                }
+
+                // Check if all starting positions are visited
+                for (let pos of playerStartingPositions) {
+                    if (!visited[pos.y][pos.x]) {
+                        return false;
+                    }
+                }
+                return true;
             }
 
             parentPort.on('message', () => {
