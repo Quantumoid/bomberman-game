@@ -6,13 +6,17 @@ const path = require('path');
 const os = require('os');
 const rateLimit = require('express-rate-limit');
 const winston = require('winston');
+const { Worker } = require('worker_threads');
 
 const app = express();
 const port = process.env.PORT || 10000;
 
+// Maximum number of active games
+const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 5;
+
 // Initialize Winston Logger
 const logger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'info', // Use environment variable for log level
+    level: process.env.LOG_LEVEL || 'info',
     format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.printf(({ timestamp, level, message, ...meta }) => {
@@ -20,15 +24,12 @@ const logger = winston.createLogger({
         })
     ),
     transports: [
-        // Console transport - always enabled
         new winston.transports.Console({
             format: winston.format.combine(
                 winston.format.colorize(),
                 winston.format.simple()
             )
         }),
-
-        // File transports - only in non-production environments
         ...(process.env.NODE_ENV !== 'production' ? [
             new winston.transports.File({ filename: 'error.log', level: 'error' }),
             new winston.transports.File({ filename: 'combined.log' }),
@@ -36,16 +37,22 @@ const logger = winston.createLogger({
     ],
 });
 
-// Rate Limiter to prevent abuse
-const limiter = rateLimit({
+// General Rate Limiter to prevent abuse on all endpoints
+const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
     max: 200, // limit each IP to 200 requests per windowMs
     message: 'Too many requests from this IP, please try again after a minute.',
 });
 
-app.use(limiter);
+app.use(generalLimiter);
 
-// Serve static files from the 'public' directory
+// Specific Rate Limiter for /create-game to prevent abuse
+const createGameLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 5, // limit each IP to 5 create-game requests per windowMs
+    message: 'Too many game creation requests from this IP, please try again after a minute.',
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Health Check Endpoint
@@ -94,152 +101,219 @@ const playerStartingPositions = [
 
 // Function to create a new map with random walls, preserving zeros
 function createRandomMap() {
-    const initialMap = createInitialMap(); // Get the initial map
-    const map = [];
+    return new Promise((resolve, reject) => {
+        const worker = new Worker(`
+            const { parentPort } = require('worker_threads');
 
-    for (let y = 0; y < initialMap.length; y++) {
-        map[y] = [];
-        for (let x = 0; x < initialMap[y].length; x++) {
-            if (initialMap[y][x] === 0) {
-                // Keep zeros in the same positions
-                map[y][x] = 0;
-            } else {
-                // Randomly assign ones and twos, but ensure indestructible walls do not block players
-                if (isAdjacentToPlayerStart(x, y)) {
-                    // Do not place indestructible walls adjacent to player starting positions
-                    map[y][x] = 1; // Place a destructible brick wall
-                } else {
-                    if (Math.random() < 0.2) {
-                        // 20% chance to be an indestructible wall
-                        map[y][x] = 2;
-                    } else {
-                        // 80% chance to be a destructible brick wall
-                        map[y][x] = 1;
+            function createInitialMap() {
+                return [
+                    [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0],
+                    [0, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 0],
+                    [1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
+                    [0, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                    [0, 2, 1, 2, 2, 2, 1, 2, 1, 2, 1, 2, 1, 2, 0],
+                    [0, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 0],
+                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
+                    [1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1],
+                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [0, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 0],
+                    [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 2, 1, 0, 0]
+                ];
+            }
+
+            const playerStartingPositions = [
+                { x: 0, y: 0 },
+                { x: 14, y: 14 },
+                { x: 0, y: 14 },
+                { x: 14, y: 0 },
+                { x: 7, y: 0 },
+                { x: 7, y: 14 },
+                { x: 0, y: 7 },
+                { x: 14, y: 7 }
+            ];
+
+            function isAdjacentToPlayerStart(x, y) {
+                for (let pos of playerStartingPositions) {
+                    const dx = Math.abs(pos.x - x);
+                    const dy = Math.abs(pos.y - y);
+                    if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                        return true;
                     }
                 }
+                return false;
             }
-        }
-    }
 
-    // Ensure the map is connected and all destructible bricks are accessible
-    connectMap(map);
+            function connectMap(map) {
+                const rows = map.length;
+                const cols = map[0].length;
+                const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+                const queue = [];
 
-    return map;
-}
+                playerStartingPositions.forEach(pos => {
+                    if (!visited[pos.y][pos.x]) {
+                        queue.push(pos);
+                        visited[pos.y][pos.x] = true;
+                    }
+                });
 
-// Function to check if a position is adjacent to any player starting position
-function isAdjacentToPlayerStart(x, y) {
-    for (let pos of playerStartingPositions) {
-        const dx = Math.abs(pos.x - x);
-        const dy = Math.abs(pos.y - y);
-        if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
-            return true;
-        }
-    }
-    return false;
-}
+                let head = 0;
+                while (head < queue.length) {
+                    const { x, y } = queue[head++];
+                    const neighbors = [
+                        { x: x - 1, y },
+                        { x: x + 1, y },
+                        { x, y: y - 1 },
+                        { x, y: y + 1 }
+                    ];
 
-// Function to ensure the map is fully connected and all destructible bricks are accessible
-function connectMap(map) {
-    const rows = map.length;
-    const cols = map[0].length;
-    const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-    const queue = [];
-
-    // Start BFS from all player starting positions
-    playerStartingPositions.forEach(pos => {
-        if (!visited[pos.y][pos.x]) {
-            queue.push(pos);
-            visited[pos.y][pos.x] = true;
-        }
-    });
-
-    while (queue.length > 0) {
-        const { x, y } = queue.shift();
-
-        const neighbors = [
-            { x: x - 1, y }, // Left
-            { x: x + 1, y }, // Right
-            { x, y: y - 1 }, // Up
-            { x, y: y + 1 }  // Down
-        ];
-
-        neighbors.forEach(({ x: nx, y: ny }) => {
-            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx]) {
-                const tile = map[ny][nx];
-                if (tile !== 2) { // If not an indestructible wall
-                    visited[ny][nx] = true;
-                    queue.push({ x: nx, y: ny });
+                    neighbors.forEach(({ x: nx, y: ny }) => {
+                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx]) {
+                            const tile = map[ny][nx];
+                            if (tile !== 2) {
+                                visited[ny][nx] = true;
+                                queue.push({ x: nx, y: ny });
+                            }
+                        }
+                    });
                 }
+
+                let madeProgress = true;
+                let iteration = 0;
+                const MAX_ITERATIONS = 1000;
+
+                while (madeProgress && iteration < MAX_ITERATIONS) {
+                    madeProgress = false;
+                    iteration++;
+                    for (let y = 0; y < rows; y++) {
+                        for (let x = 0; x < cols; x++) {
+                            if (map[y][x] === 1 && !visited[y][x]) {
+                                const path = findPathToVisited(map, visited, x, y);
+                                if (path) {
+                                    path.forEach(({ x: px, y: py }) => {
+                                        if (map[py][px] === 2) {
+                                            map[py][px] = 1;
+                                        }
+                                        visited[py][px] = true;
+                                    });
+                                    madeProgress = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (iteration === MAX_ITERATIONS) {
+                    parentPort.postMessage({ warning: 'connectMap reached maximum iterations. Map may not be fully connected.' });
+                }
+            }
+
+            function findPathToVisited(map, visited, startX, startY) {
+                const rows = map.length;
+                const cols = map[0].length;
+                const queue = [{ x: startX, y: startY, path: [] }];
+                const seen = Array.from({ length: rows }, () => Array(cols).fill(false));
+                seen[startY][startX] = true;
+
+                let head = 0;
+                while (head < queue.length) {
+                    const { x, y, path } = queue[head++];
+                    const neighbors = [
+                        { x: x - 1, y },
+                        { x: x + 1, y },
+                        { x, y: y - 1 },
+                        { x, y: y + 1 }
+                    ];
+
+                    for (let neighbor of neighbors) {
+                        const nx = neighbor.x;
+                        const ny = neighbor.y;
+
+                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !seen[ny][nx]) {
+                            seen[ny][nx] = true;
+                            const tile = map[ny][nx];
+                            const newPath = [...path, { x: nx, y: ny }];
+
+                            if (visited[ny][nx]) {
+                                return newPath;
+                            }
+
+                            if (tile === 2 || tile === 1 || tile === 0) {
+                                queue.push({ x: nx, y: ny, path: newPath });
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+
+            parentPort.on('message', () => {
+                try {
+                    const initialMap = createInitialMap();
+                    const map = [];
+
+                    for (let y = 0; y < initialMap.length; y++) {
+                        map[y] = [];
+                        for (let x = 0; x < initialMap[y].length; x++) {
+                            if (initialMap[y][x] === 0) {
+                                map[y][x] = 0;
+                            } else {
+                                if (isAdjacentToPlayerStart(x, y)) {
+                                    map[y][x] = 1;
+                                } else {
+                                    map[y][x] = Math.random() < 0.2 ? 2 : 1;
+                                }
+                            }
+                        }
+                    }
+
+                    connectMap(map);
+                    parentPort.postMessage({ map });
+                } catch (error) {
+                    parentPort.postMessage({ error: error.message });
+                }
+            });
+        `, { eval: true });
+
+        worker.on('message', (message) => {
+            if (message.error) {
+                reject(new Error(message.error));
+            } else if (message.warning) {
+                logger.warn(message.warning);
+                resolve(message.map);
+            } else {
+                resolve(message.map);
             }
         });
-    }
 
-    // Identify unreachable destructible bricks and connect them
-    let madeProgress = true;
-    while (madeProgress) {
-        madeProgress = false;
-        for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < cols; x++) {
-                if (map[y][x] === 1 && !visited[y][x]) {
-                    // Find the nearest reachable tile
-                    const path = findPathToVisited(map, visited, x, y);
-                    if (path) {
-                        // Remove indestructible walls along the path
-                        path.forEach(({ x: px, y: py }) => {
-                            if (map[py][px] === 2) {
-                                map[py][px] = 1; // Change to destructible brick
-                            }
-                            visited[py][px] = true;
-                        });
-                        madeProgress = true;
-                    }
-                }
-            }
-        }
-    }
+        worker.on('error', (error) => {
+            reject(error);
+        });
+
+        worker.postMessage('start');
+    });
 }
 
-// Helper function to find a path from an unvisited tile to a visited tile
-function findPathToVisited(map, visited, startX, startY) {
-    const rows = map.length;
-    const cols = map[0].length;
-    const queue = [{ x: startX, y: startY, path: [] }];
-    const seen = Array.from({ length: rows }, () => Array(cols).fill(false));
-    seen[startY][startX] = true;
+// Tile types
+// 0: Empty space
+// 1: Brick wall (destructible)
+// 2: Indestructible wall
+// 3: Power-up
 
-    while (queue.length > 0) {
-        const { x, y, path } = queue.shift();
-
-        const neighbors = [
-            { x: x - 1, y },
-            { x: x + 1, y },
-            { x, y: y - 1 },
-            { x, y: y + 1 }
-        ];
-
-        for (let neighbor of neighbors) {
-            const nx = neighbor.x;
-            const ny = neighbor.y;
-
-            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !seen[ny][nx]) {
-                seen[ny][nx] = true;
-                const tile = map[ny][nx];
-                const newPath = [...path, { x: nx, y: ny }];
-
-                if (visited[ny][nx]) {
-                    // Found a path to a visited tile
-                    return newPath;
-                }
-
-                if (tile === 2 || tile === 1 || tile === 0) {
-                    queue.push({ x: nx, y: ny, path: newPath });
-                }
-            }
-        }
-    }
-    return null; // No path found
-}
+// List of player starting positions
+const playerStartingPositions = [
+    { x: 0, y: 0 },
+    { x: 14, y: 14 },
+    { x: 0, y: 14 },
+    { x: 14, y: 0 },
+    { x: 7, y: 0 },
+    { x: 7, y: 14 },
+    { x: 0, y: 7 },
+    { x: 14, y: 7 }
+];
 
 // Create HTTP server and bind to all interfaces
 const server = http.createServer(app);
@@ -315,9 +389,9 @@ wss.on('connection', (ws) => {
                     players: game.players,
                     playerNumber: playerNumber,
                     map: game.map,
-                    powerUps: Object.keys(game.powerUps).map(key => {
+                    powerUps: Array.from(game.powerUps).map(([key, value]) => {
                         const [x, y] = key.split(',').map(Number);
-                        return { x, y, type: game.powerUps[key] };
+                        return { x, y, type: value };
                     })
                 }));
 
@@ -373,12 +447,12 @@ wss.on('connection', (ws) => {
 
                     // Check for power-up at new position
                     const powerUpKey = `${newX},${newY}`;
-                    if (game.powerUps[powerUpKey]) {
-                        const powerUp = game.powerUps[powerUpKey];
+                    if (game.powerUps.has(powerUpKey)) {
+                        const powerUp = game.powerUps.get(powerUpKey);
                         applyPowerUp(player, powerUp);
 
                         // Remove power-up from game
-                        delete game.powerUps[powerUpKey];
+                        game.powerUps.delete(powerUpKey);
                         game.map[newY][newX] = 0;
 
                         // Notify clients to remove power-up from the map
@@ -597,7 +671,8 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                                     powerUpType = 'speed';
                                 }
 
-                                game.powerUps[`${pos.x},${pos.y}`] = powerUpType;
+                                const key = `${pos.x},${pos.y}`;
+                                game.powerUps.set(key, powerUpType);
                                 game.map[pos.y][pos.x] = 3; // Power-up tile
                                 newPowerUps.push({ x: pos.x, y: pos.y, type: powerUpType });
                             }
@@ -673,30 +748,34 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
         // Check if all brick walls are destroyed
         if (isAllBricksDestroyed(game.map)) {
             // Generate a new map
-            game.map = createRandomMap();
-            game.powerUps = {}; // Reset power-ups
+            createRandomMap().then(newMap => {
+                game.map = newMap;
+                game.powerUps = new Map(); // Reset power-ups
 
-            // Reset players' positions and properties
-            Object.keys(game.players).forEach(pId => {
-                const player = game.players[pId];
-                const initialPosition = getPlayerInitialPosition(player.playerNumber);
-                player.x = initialPosition.x;
-                player.y = initialPosition.y;
-                player.maxBombs = 1;
-                player.bombRadius = 1;
-                player.currentBombs = 0;
-                player.speed = 1;
-                player.invincible = false;
-            });
+                // Reset players' positions and properties
+                Object.keys(game.players).forEach(pId => {
+                    const player = game.players[pId];
+                    const initialPosition = getPlayerInitialPosition(player.playerNumber);
+                    player.x = initialPosition.x;
+                    player.y = initialPosition.y;
+                    player.maxBombs = 1;
+                    player.bombRadius = 1;
+                    player.currentBombs = 0;
+                    player.speed = 1;
+                    player.invincible = false;
+                });
 
-            logger.info(`All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
+                logger.info(`All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
 
-            // Notify clients about the new map
-            broadcastToGame(gamePassword, {
-                type: 'newMap',
-                map: game.map,
-                players: game.players,
-                powerUps: [] // Assuming no initial power-ups in new map
+                // Notify clients about the new map
+                broadcastToGame(gamePassword, {
+                    type: 'newMap',
+                    map: game.map,
+                    players: game.players,
+                    powerUps: [] // Assuming no initial power-ups in new map
+                });
+            }).catch(error => {
+                logger.error(`Error generating new map: ${error.message}`);
             });
         }
     } catch (error) {
@@ -717,12 +796,21 @@ function isAllBricksDestroyed(map) {
 }
 
 // Endpoint to create a new game with a unique URL
-app.get('/create-game', (req, res, next) => {
+app.get('/create-game', createGameLimiter, async (req, res, next) => {
     try {
+        if (Object.keys(games).length >= MAX_ACTIVE_GAMES) {
+            logger.warn(`Maximum active games (${MAX_ACTIVE_GAMES}) reached. Cannot create a new game.`);
+            return res.status(429).json({ error: 'Too many active games. Please try again later.' });
+        }
+
         const password = uuidv4();
         const protocol = req.headers['x-forwarded-proto'] || 'http';
         const host = req.headers.host;
         const gameUrl = `${protocol}://${host}/game/${password}`;
+
+        logger.info(`Creating new game with password: ${password}`);
+
+        const map = await createRandomMap();
 
         games[password] = {
             password: password,
@@ -731,8 +819,8 @@ app.get('/create-game', (req, res, next) => {
             bombs: [],
             clients: new Set(),
             createdAt: new Date(),
-            map: createRandomMap(),
-            powerUps: {},
+            map: map,
+            powerUps: new Map(),
             timeout: setTimeout(() => {
                 if (Object.keys(games[password].players).length === 0) {
                     logger.info(`No players joined game ${password} within 5 minutes. Deleting game.`);
@@ -816,12 +904,10 @@ process.on('SIGINT', gracefulShutdown);
 // Handle Uncaught Exceptions and Unhandled Rejections to prevent server crashes
 process.on('uncaughtException', (err) => {
     logger.error(`Uncaught Exception: ${err.message}`);
-    // Optionally restart the server or perform cleanup
     gracefulShutdown();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     logger.error(`Unhandled Rejection at: ${promise} reason: ${reason}`);
-    // Optionally restart the server or perform cleanup
     gracefulShutdown();
 });
