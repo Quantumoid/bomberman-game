@@ -430,6 +430,7 @@
 <!-- Audio elements for sound effects -->
 <audio id="powerup-sound" src="/powerup_sound.mp3"></audio>
 <audio id="bomb-explosion-sound" src="/bomb_explosion.mp3"></audio>
+<audio id="hit-sound" src="/hit_sound.wav"></audio>
 
 <!-- Nickname Overlay -->
 <div id="nickname-overlay">
@@ -1007,10 +1008,13 @@
         // Append the explosion to the player's cell
         playerElement.parentElement.appendChild(explosion);
 
-        // Play the hit sound (optional)
-        const hitSound = new Audio('/hit_sound.wav'); // Ensure this file exists
-        hitSound.play();
-
+        // Play the hit sound
+        const hitSound = document.getElementById('hit-sound');
+        if (hitSound) {
+            hitSound.currentTime = 0;
+            hitSound.play();
+        }
+    
         // Remove the explosion element after the animation completes (e.g., 1s)
         setTimeout(() => {
             explosion.remove();
