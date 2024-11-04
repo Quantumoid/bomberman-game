@@ -84,7 +84,7 @@ function createRandomMap() {
                 // Randomly place indestructible walls inside the map with symmetry
                 for (let y = 1; y < rows - 1; y++) {
                     for (let x = 1; x < Math.floor(cols / 2); x++) {
-                        if (Math.random() < 0.3) { // 30% chance to place an indestructible wall
+                        if (Math.random() < 0.2) { // 20% chance to place an indestructible wall
                             map[y][x] = 2;
                             map[y][cols - 1 - x] = 2; // Symmetric placement
                         }
@@ -95,7 +95,7 @@ function createRandomMap() {
                 for (let y = 1; y < rows - 1; y++) {
                     for (let x = 1; x < cols - 1; x++) {
                         if (map[y][x] === 0 && !isPlayerStartingPosition(x, y)) {
-                            if (Math.random() < 0.2) { // 20% chance to place a destructible wall
+                            if (Math.random() < 0.3) { // 30% chance to place a destructible wall
                                 map[y][x] = 1;
                                 map[y][cols - 1 - x] = 1; // Symmetric placement
                             }
@@ -122,27 +122,27 @@ function createRandomMap() {
             }
 
             function generateStrategicWalls(map) {
-                // Symmetric walls
-                for (let y = 0; y < map.length; y++) {
-                    for (let x = 0; x < Math.floor(map[0].length / 2); x++) {
-                        const mirrorX = map[0].length - 1 - x;
-                        if (map[y][x] === 1 || map[y][x] === 2) {
-                            map[y][mirrorX] = map[y][x];
-                        }
+                // Central horizontal choke point with openings
+                const centralY = Math.floor(map.length / 2);
+                for (let x = 2; x < map[0].length - 2; x++) {
+                    // Leave openings at intervals
+                    if (x % 4 !== 0) { // Leave an opening every 4 tiles
+                        map[centralY][x] = 2; // Indestructible wall
+                    } else {
+                        map[centralY][x] = 0; // Opening
                     }
                 }
 
-                // Central horizontal choke point
-                const centralY = Math.floor(map.length / 2);
-                for (let x = 2; x < map[0].length - 2; x++) {
-                    map[centralY][x] = 2; // Indestructible wall
-                }
-
-                // Vertical walls in specific columns
+                // Vertical walls in specific columns with openings
                 const verticalColumns = [3, 11];
                 verticalColumns.forEach(col => {
                     for (let y = 2; y < map.length - 2; y++) {
-                        map[y][col] = 2;
+                        // Leave openings at intervals
+                        if (y % 4 !== 0) { // Leave an opening every 4 tiles
+                            map[y][col] = 2;
+                        } else {
+                            map[y][col] = 0; // Opening
+                        }
                     }
                 });
 
