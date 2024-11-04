@@ -169,7 +169,7 @@ function createRandomMap() {
                 }
 
                 if (iteration === MAX_ITERATIONS) {
-                    parentPort.postMessage({ warning: 'connectMap reached maximum iterations. Map may not be fully connected.' });
+                    parentPort.postMessage({ error: 'connectMap reached maximum iterations. Map may not be fully connected.' });
                 }
             }
 
@@ -243,9 +243,6 @@ function createRandomMap() {
         worker.on('message', (message) => {
             if (message.error) {
                 reject(new Error(message.error));
-            } else if (message.warning) {
-                log('warn', message.warning);
-                resolve(message.map);
             } else {
                 resolve(message.map);
             }
