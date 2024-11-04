@@ -51,12 +51,8 @@ app.get('/healthyornot', (req, res) => {
 // List of player starting positions
 const playerStartingPositions = [
     { x: 0, y: 0 },
-    { x: 7, y: 0 },
     { x: 14, y: 0 },
-    { x: 0, y: 7 },
-    { x: 14, y: 7 },
     { x: 0, y: 14 },
-    { x: 7, y: 14 },
     { x: 14, y: 14 }
 ];
 
@@ -67,33 +63,31 @@ function createRandomMap() {
             const { parentPort } = require('worker_threads');
 
             function createInitialMap() {
-                return [
-                    [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0],
-                    [0, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 0],
-                    [1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [0, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 2, 1, 2, 2, 2, 1, 2, 1, 2, 1, 2, 1, 2, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 0],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [0, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 0],
-                    [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 2, 1, 0, 0]
-                ];
+                const size = 15;
+                const map = Array.from({ length: size }, () => Array(size).fill(0));
+
+                // Create indestructible walls around the border
+                for (let i = 0; i < size; i++) {
+                    map[0][i] = 2;
+                    map[size - 1][i] = 2;
+                    map[i][0] = 2;
+                    map[i][size - 1] = 2;
+                }
+
+                // Create a grid pattern of indestructible walls
+                for (let y = 2; y < size - 2; y += 2) {
+                    for (let x = 2; x < size - 2; x += 2) {
+                        map[y][x] = 2;
+                    }
+                }
+
+                return map;
             }
 
             const playerStartingPositions = [
                 { x: 0, y: 0 },
-                { x: 7, y: 0 },
                 { x: 14, y: 0 },
-                { x: 0, y: 7 },
-                { x: 14, y: 7 },
                 { x: 0, y: 14 },
-                { x: 7, y: 14 },
                 { x: 14, y: 14 }
             ];
 
@@ -101,29 +95,39 @@ function createRandomMap() {
                 for (let pos of playerStartingPositions) {
                     const dx = Math.abs(pos.x - x);
                     const dy = Math.abs(pos.y - y);
-                    if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                    if ((dx <= 1 && dy <= 1)) {
                         return true;
                     }
                 }
                 return false;
             }
 
-            function connectMap(map) {
-                const rows = map.length;
-                const cols = map[0].length;
-                const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+            function populateDestructibleWalls(map) {
+                const size = map.length;
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        if (map[y][x] === 0 && !isAdjacentToPlayerStart(x, y)) {
+                            map[y][x] = Math.random() < 0.6 ? 1 : 0; // 60% chance for destructible wall
+                        }
+                    }
+                }
+                return map;
+            }
+
+            function ensureConnectivity(map) {
+                const size = map.length;
+                const visited = Array.from({ length: size }, () => Array(size).fill(false));
                 const queue = [];
 
                 playerStartingPositions.forEach(pos => {
-                    if (!visited[pos.y][pos.x]) {
+                    if (map[pos.y][pos.x] !== 2 && !visited[pos.y][pos.x]) {
                         queue.push(pos);
                         visited[pos.y][pos.x] = true;
                     }
                 });
 
-                let head = 0;
-                while (head < queue.length) {
-                    const { x, y } = queue[head++];
+                while (queue.length > 0) {
+                    const { x, y } = queue.shift();
                     const neighbors = [
                         { x: x - 1, y },
                         { x: x + 1, y },
@@ -132,106 +136,30 @@ function createRandomMap() {
                     ];
 
                     neighbors.forEach(({ x: nx, y: ny }) => {
-                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx]) {
-                            const tile = map[ny][nx];
-                            if (tile !== 2) {
-                                visited[ny][nx] = true;
-                                queue.push({ x: nx, y: ny });
-                            }
+                        if (nx >= 0 && nx < size && ny >= 0 && ny < size && !visited[ny][nx] && map[ny][nx] !== 2) {
+                            visited[ny][nx] = true;
+                            queue.push({ x: nx, y: ny });
                         }
                     });
                 }
 
-                let madeProgress = true;
-                let iteration = 0;
-                const MAX_ITERATIONS = 1000;
-
-                while (madeProgress && iteration < MAX_ITERATIONS) {
-                    madeProgress = false;
-                    iteration++;
-                    for (let y = 0; y < rows; y++) {
-                        for (let x = 0; x < cols; x++) {
-                            if (map[y][x] === 1 && !visited[y][x]) {
-                                const path = findPathToVisited(map, visited, x, y);
-                                if (path) {
-                                    path.forEach(({ x: px, y: py }) => {
-                                        if (map[py][px] === 2) {
-                                            map[py][px] = 1;
-                                        }
-                                        visited[py][px] = true;
-                                    });
-                                    madeProgress = true;
-                                }
-                            }
+                // Remove disconnected destructible walls
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        if (map[y][x] === 1 && !visited[y][x]) {
+                            map[y][x] = 0;
                         }
                     }
                 }
 
-                if (iteration === MAX_ITERATIONS) {
-                    parentPort.postMessage({ error: 'connectMap reached maximum iterations. Map may not be fully connected.' });
-                }
-            }
-
-            function findPathToVisited(map, visited, startX, startY) {
-                const rows = map.length;
-                const cols = map[0].length;
-                const queue = [{ x: startX, y: startY, path: [] }];
-                const seen = Array.from({ length: rows }, () => Array(cols).fill(false));
-                seen[startY][startX] = true;
-
-                let head = 0;
-                while (head < queue.length) {
-                    const { x, y, path } = queue[head++];
-                    const neighbors = [
-                        { x: x - 1, y },
-                        { x: x + 1, y },
-                        { x, y: y - 1 },
-                        { x, y: y + 1 }
-                    ];
-
-                    for (let neighbor of neighbors) {
-                        const nx = neighbor.x;
-                        const ny = neighbor.y;
-
-                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !seen[ny][nx]) {
-                            seen[ny][nx] = true;
-                            const tile = map[ny][nx];
-                            const newPath = [...path, { x: nx, y: ny }];
-
-                            if (visited[ny][nx]) {
-                                return newPath;
-                            }
-
-                            if (tile === 2 || tile === 1 || tile === 0) {
-                                queue.push({ x: nx, y: ny, path: newPath });
-                            }
-                        }
-                    }
-                }
-                return null;
+                return map;
             }
 
             parentPort.on('message', () => {
                 try {
-                    const initialMap = createInitialMap();
-                    const map = [];
-
-                    for (let y = 0; y < initialMap.length; y++) {
-                        map[y] = [];
-                        for (let x = 0; x < initialMap[y].length; x++) {
-                            if (initialMap[y][x] === 0) {
-                                map[y][x] = 0;
-                            } else {
-                                if (isAdjacentToPlayerStart(x, y)) {
-                                    map[y][x] = 1;
-                                } else {
-                                    map[y][x] = Math.random() < 0.15 ? 2 : 1; // Reduced from 0.2 to 0.15
-                                }
-                            }
-                        }
-                    }
-
-                    connectMap(map);
+                    let map = createInitialMap();
+                    map = populateDestructibleWalls(map);
+                    map = ensureConnectivity(map);
                     parentPort.postMessage({ map });
                 } catch (error) {
                     parentPort.postMessage({ error: error.message });
@@ -347,7 +275,7 @@ wss.on('connection', (ws) => {
                 const playerNumber = numPlayers + 1; // Assign player number
 
                 // Limit the number of players if necessary
-                if (playerNumber > 8) { // Allow up to 8 players
+                if (playerNumber > playerStartingPositions.length) { // Allow up to predefined starting positions
                     ws.send(JSON.stringify({ type: 'error', message: 'Game is full.' }));
                     ws.close();
                     return;
