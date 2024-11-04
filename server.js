@@ -5,7 +5,6 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const os = require('os');
 const rateLimit = require('express-rate-limit');
-const winston = require('winston');
 const { Worker } = require('worker_threads');
 
 const app = express();
@@ -14,28 +13,12 @@ const port = process.env.PORT || 10000;
 // Maximum number of active games
 const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 50;
 
-// Initialize Winston Logger
-const logger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'info',
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.printf(({ timestamp, level, message, ...meta }) => {
-            return `${timestamp} [${level.toUpperCase()}]: ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`;
-        })
-    ),
-    transports: [
-        new winston.transports.Console({
-            format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.simple()
-            )
-        }),
-        ...(process.env.NODE_ENV !== 'production' ? [
-            new winston.transports.File({ filename: 'error.log', level: 'error' }),
-            new winston.transports.File({ filename: 'combined.log' }),
-        ] : [])
-    ],
-});
+// Simple Logger Function with Custom Timestamp
+function log(level, message) {
+    const timestamp = new Date().toISOString();
+    const levelUpper = level.toUpperCase();
+    console.log(`${timestamp} [${levelUpper}]: ${message}`);
+}
 
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
@@ -261,7 +244,7 @@ function createRandomMap() {
             if (message.error) {
                 reject(new Error(message.error));
             } else if (message.warning) {
-                logger.warn(message.warning);
+                log('warn', message.warning);
                 resolve(message.map);
             } else {
                 resolve(message.map);
@@ -373,7 +356,7 @@ wss.on('connection', (ws) => {
                     players: game.players
                 });
 
-                logger.info(`Player ${nickname} joined game ${gamePassword} as Player ${playerNumber}`);
+                log('info', `Player ${nickname} joined game ${gamePassword} as Player ${playerNumber}`);
             }
 
             if (data.type === 'move') {
@@ -466,7 +449,7 @@ wss.on('connection', (ws) => {
             }
 
         } catch (error) {
-            logger.error(`WebSocket Error handling message: ${error.message}`);
+            log('error', `WebSocket Error handling message: ${error.message}`);
             ws.send(JSON.stringify({ type: 'error', message: 'Internal server error.' }));
         }
     });
@@ -476,7 +459,7 @@ wss.on('connection', (ws) => {
             const game = games[gamePassword];
             const player = game.players[playerId];
             if (player) {
-                logger.info(`Player ${player.nickname} left game ${gamePassword}`);
+                log('info', `Player ${player.nickname} left game ${gamePassword}`);
                 delete game.players[playerId];
                 game.clients.delete(ws);
 
@@ -503,7 +486,7 @@ wss.on('connection', (ws) => {
 
                 // If no clients remain, delete the game
                 if (game.clients.size === 0) {
-                    logger.info(`Deleting empty game ${gamePassword}`);
+                    log('info', `Deleting empty game ${gamePassword}`);
                     // Clear game creation timeout
                     if (game.timeout) clearTimeout(game.timeout);
                     // Clear remaining bomb timeouts
@@ -517,7 +500,7 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('error', (error) => {
-        logger.error(`WebSocket error: ${error.message}`);
+        log('error', `WebSocket error: ${error.message}`);
     });
 });
 
@@ -563,7 +546,7 @@ function broadcastToGame(gamePassword, data, excludeWs = null) {
                 try {
                     client.send(JSON.stringify(data));
                 } catch (error) {
-                    logger.error(`Error broadcasting to client: ${error.message}`);
+                    log('error', `Error broadcasting to client: ${error.message}`);
                 }
             }
         });
@@ -726,7 +709,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                     player.invincible = false;
                 });
 
-                logger.info(`All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
+                log('info', `All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
 
                 // Notify clients about the new map
                 broadcastToGame(gamePassword, {
@@ -736,11 +719,11 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                     powerUps: [] // Assuming no initial power-ups in new map
                 });
             }).catch(error => {
-                logger.error(`Error generating new map: ${error.message}`);
+                log('error', `Error generating new map: ${error.message}`);
             });
         }
     } catch (error) {
-        logger.error(`Error during bomb explosion: ${error.message}`);
+        log('error', `Error during bomb explosion: ${error.message}`);
     }
 }
 
@@ -760,7 +743,7 @@ function isAllBricksDestroyed(map) {
 app.get('/create-game', createGameLimiter, async (req, res, next) => {
     try {
         if (Object.keys(games).length >= MAX_ACTIVE_GAMES) {
-            logger.warn(`Maximum active games (${MAX_ACTIVE_GAMES}) reached. Cannot create a new game.`);
+            log('warn', `Maximum active games (${MAX_ACTIVE_GAMES}) reached. Cannot create a new game.`);
             return res.status(429).json({ error: 'Too many active games. Please try again later.' });
         }
 
@@ -769,7 +752,7 @@ app.get('/create-game', createGameLimiter, async (req, res, next) => {
         const host = req.headers.host;
         const gameUrl = `${protocol}://${host}/game/${password}`;
 
-        logger.info(`Creating new game with password: ${password}`);
+        log('info', `Creating new game with password: ${password}`);
 
         const map = await createRandomMap();
 
@@ -784,7 +767,7 @@ app.get('/create-game', createGameLimiter, async (req, res, next) => {
             powerUps: new Map(),
             timeout: setTimeout(() => {
                 if (Object.keys(games[password].players).length === 0) {
-                    logger.info(`No players joined game ${password} within 5 minutes. Deleting game.`);
+                    log('info', `No players joined game ${password} within 5 minutes. Deleting game.`);
                     // Clear all bomb timeouts
                     games[password].bombs.forEach(bomb => {
                         if (bomb.timerId) clearTimeout(bomb.timerId);
@@ -793,10 +776,10 @@ app.get('/create-game', createGameLimiter, async (req, res, next) => {
                 }
             }, 300000) // 5 minutes in milliseconds
         };
-        logger.info(`Game created with password: ${password}`);
+        log('info', `Game created with password: ${password}`);
         res.json({ url: gameUrl });
     } catch (error) {
-        logger.error(`Error creating game: ${error.message}`);
+        log('error', `Error creating game: ${error.message}`);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -821,14 +804,14 @@ function isWalkable(x, y, game) {
 
 // Global Express Error Handler
 app.use((err, req, res, next) => {
-    logger.error(`Express Error: ${err.message}`);
+    log('error', `Express Error: ${err.message}`);
     res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // Start the server and listen on all network interfaces
 server.listen(port, '0.0.0.0', () => {
-    logger.info(`Server is running on port ${port}`);
-    logger.info(`Accessible online at http://${getLocalIPAddress()}:${port}`);
+    log('info', `Server is running on port ${port}`);
+    log('info', `Accessible online at http://${getLocalIPAddress()}:${port}`);
 });
 
 // Function to get the local IP address of the server
@@ -846,15 +829,15 @@ function getLocalIPAddress() {
 
 // Graceful Shutdown
 function gracefulShutdown() {
-    logger.info('Received kill signal, shutting down gracefully.');
+    log('info', 'Received kill signal, shutting down gracefully.');
     server.close(() => {
-        logger.info('Closed out remaining connections.');
+        log('info', 'Closed out remaining connections.');
         process.exit(0);
     });
 
     // Force shutdown after 10 seconds
     setTimeout(() => {
-        logger.error('Could not close connections in time, forcefully shutting down');
+        log('error', 'Could not close connections in time, forcefully shutting down');
         process.exit(1);
     }, 10000);
 }
@@ -864,11 +847,11 @@ process.on('SIGINT', gracefulShutdown);
 
 // Handle Uncaught Exceptions and Unhandled Rejections to prevent server crashes
 process.on('uncaughtException', (err) => {
-    logger.error(`Uncaught Exception: ${err.message}`);
+    log('error', `Uncaught Exception: ${err.message}`);
     gracefulShutdown();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    logger.error(`Unhandled Rejection at: ${promise} reason: ${reason}`);
+    log('error', `Unhandled Rejection at: ${promise} reason: ${reason}`);
     gracefulShutdown();
 });
