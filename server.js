@@ -23,7 +23,7 @@ function log(level, message) {
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 400, // limit each IP to 200 requests per windowMs
+    max: 400, // limit each IP to 400 requests per windowMs
     message: 'Too many requests from this IP, please try again after a minute.',
 });
 
@@ -32,7 +32,7 @@ app.use(generalLimiter);
 // Specific Rate Limiter for /create-game to prevent abuse
 const createGameLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 10, // limit each IP to 30 create-game requests per windowMs
+    max: 10, // limit each IP to 10 create-game requests per windowMs
     message: 'Too many game creation requests from this IP, please try again after a minute.',
 });
 
@@ -52,13 +52,13 @@ app.get('/healthyornot', (req, res) => {
 // List of player starting positions
 const playerStartingPositions = [
     { x: 0, y: 0 },
-    { x: 14, y: 14 },
-    { x: 0, y: 14 },
-    { x: 14, y: 0 },
     { x: 7, y: 0 },
-    { x: 7, y: 14 },
+    { x: 14, y: 0 },
     { x: 0, y: 7 },
-    { x: 14, y: 7 }
+    { x: 14, y: 7 },
+    { x: 0, y: 14 },
+    { x: 7, y: 14 },
+    { x: 14, y: 14 }
 ];
 
 // Function to create a new map with random walls, preserving zeros
@@ -89,13 +89,13 @@ function createRandomMap() {
 
             const playerStartingPositions = [
                 { x: 0, y: 0 },
-                { x: 14, y: 14 },
-                { x: 0, y: 14 },
-                { x: 14, y: 0 },
                 { x: 7, y: 0 },
-                { x: 7, y: 14 },
+                { x: 14, y: 0 },
                 { x: 0, y: 7 },
-                { x: 14, y: 7 }
+                { x: 14, y: 7 },
+                { x: 0, y: 14 },
+                { x: 7, y: 14 },
+                { x: 14, y: 14 }
             ];
 
             function isAdjacentToPlayerStart(x, y) {
@@ -259,6 +259,61 @@ function createRandomMap() {
     });
 }
 
+// Function to check if all starting positions are connected
+function areAllStartingPositionsConnected(map) {
+    const visited = Array.from({ length: map.length }, () => Array(map[0].length).fill(false));
+    const queue = [];
+
+    // Start BFS from the first starting position
+    const startPos = playerStartingPositions[0];
+    queue.push(startPos);
+    visited[startPos.y][startPos.x] = true;
+
+    while (queue.length > 0) {
+        const { x, y } = queue.shift();
+        const neighbors = [
+            { x: x - 1, y },
+            { x: x + 1, y },
+            { x, y: y - 1 },
+            { x, y: y + 1 }
+        ];
+
+        neighbors.forEach(({ x: nx, y: ny }) => {
+            if (nx >= 0 && nx < map[0].length && ny >= 0 && ny < map.length && !visited[ny][nx] && map[ny][nx] !== 2) {
+                visited[ny][nx] = true;
+                queue.push({ x: nx, y: ny });
+            }
+        });
+    }
+
+    // Check if all starting positions are visited
+    for (let pos of playerStartingPositions) {
+        if (!visited[pos.y][pos.x]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Retry logic for createRandomMap
+async function createRandomMapWithRetries(maxRetries = 5) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const map = await createRandomMap();
+            if (areAllStartingPositionsConnected(map)) {
+                return map;
+            } else {
+                throw new Error('Generated map does not connect all starting positions.');
+            }
+        } catch (error) {
+            log('warn', `Map generation attempt ${attempt} failed: ${error.message}`);
+            if (attempt === maxRetries) {
+                throw error;
+            }
+        }
+    }
+}
+
 // Create HTTP server and bind to all interfaces
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -304,6 +359,13 @@ wss.on('connection', (ws) => {
 
                 // Assign initial positions based on player number
                 let initialPosition = getPlayerInitialPosition(playerNumber);
+
+                // Validate initial position
+                if (!isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid initial position.' }));
+                    ws.close();
+                    return;
+                }
 
                 game.players[playerId] = {
                     x: initialPosition.x,
@@ -373,13 +435,13 @@ wss.on('connection', (ws) => {
                         newY = Math.max(0, player.y - 1);
                         break;
                     case 'ArrowDown':
-                        newY = Math.min(14, player.y + 1);
+                        newY = Math.min(game.map.length - 1, player.y + 1);
                         break;
                     case 'ArrowLeft':
                         newX = Math.max(0, player.x - 1);
                         break;
                     case 'ArrowRight':
-                        newX = Math.min(14, player.x + 1);
+                        newX = Math.min(game.map[0].length - 1, player.x + 1);
                         break;
                     default:
                         break;
@@ -537,6 +599,11 @@ function getPlayerInitialPosition(playerNumber) {
     return playerStartingPositions[playerNumber - 1] || { x: 0, y: 0 };
 }
 
+// Function to check if a position is valid within the map
+function isPositionValid(x, y, map) {
+    return y >= 0 && y < map.length && x >= 0 && x < map[0].length;
+}
+
 // Broadcast to all clients within a specific game
 function broadcastToGame(gamePassword, data, excludeWs = null) {
     const game = games[gamePassword];
@@ -591,7 +658,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
         directions.forEach(dir => {
             for (let i = 1; i <= bomb.radius; i++) {
                 const pos = { x: bomb.x + dir.dx * i, y: bomb.y + dir.dy * i };
-                if (pos.x >= 0 && pos.x < 15 && pos.y >= 0 && pos.y < 15) {
+                if (isPositionValid(pos.x, pos.y, game.map)) {
                     const tile = game.map[pos.y][pos.x];
                     if (tile === 2) {
                         // Stop if the explosion hits an indestructible wall
@@ -658,8 +725,13 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                 if (targetPlayer.x === pos.x && targetPlayer.y === pos.y && !targetPlayer.invincible) {
                     // Reset player position
                     const initialPosition = getPlayerInitialPosition(targetPlayer.playerNumber);
-                    targetPlayer.x = initialPosition.x;
-                    targetPlayer.y = initialPosition.y;
+                    if (isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
+                        targetPlayer.x = initialPosition.x;
+                        targetPlayer.y = initialPosition.y;
+                    } else {
+                        targetPlayer.x = 0;
+                        targetPlayer.y = 0;
+                    }
 
                     // Set invincibility
                     targetPlayer.invincible = true;
@@ -692,7 +764,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
         // Check if all brick walls are destroyed
         if (isAllBricksDestroyed(game.map)) {
             // Generate a new map
-            createRandomMap().then(newMap => {
+            createRandomMapWithRetries().then(newMap => {
                 game.map = newMap;
                 game.powerUps = new Map(); // Reset power-ups
 
@@ -700,8 +772,13 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                 Object.keys(game.players).forEach(pId => {
                     const player = game.players[pId];
                     const initialPosition = getPlayerInitialPosition(player.playerNumber);
-                    player.x = initialPosition.x;
-                    player.y = initialPosition.y;
+                    if (isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
+                        player.x = initialPosition.x;
+                        player.y = initialPosition.y;
+                    } else {
+                        player.x = 0;
+                        player.y = 0;
+                    }
                     player.maxBombs = 1;
                     player.bombRadius = 1;
                     player.currentBombs = 0;
@@ -754,7 +831,7 @@ app.get('/create-game', createGameLimiter, async (req, res, next) => {
 
         log('info', `Creating new game with password: ${password}`);
 
-        const map = await createRandomMap();
+        const map = await createRandomMapWithRetries();
 
         games[password] = {
             password: password,
@@ -855,3 +932,22 @@ process.on('unhandledRejection', (reason, promise) => {
     log('error', `Unhandled Rejection at: ${promise} reason: ${reason}`);
     gracefulShutdown();
 });
+
+// Helper function to create map with retries
+async function createRandomMapWithRetries(maxRetries = 5) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const map = await createRandomMap();
+            if (areAllStartingPositionsConnected(map)) {
+                return map;
+            } else {
+                throw new Error('Generated map does not connect all starting positions.');
+            }
+        } catch (error) {
+            log('warn', `Map generation attempt ${attempt} failed: ${error.message}`);
+            if (attempt === maxRetries) {
+                throw error;
+            }
+        }
+    }
+}
