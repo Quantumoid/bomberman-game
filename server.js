@@ -239,6 +239,10 @@ function createRandomMap() {
                 return map;
             }
 
+            function isPositionValid(x, y, map) {
+                return y >= 0 && y < map.length && x >= 0 && x < map[0].length;
+            }
+
             parentPort.on('message', () => {
                 try {
                     let map = createInitialMap();
