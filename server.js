@@ -51,57 +51,83 @@ app.get('/healthyornot', (req, res) => {
 // List of player starting positions
 const playerStartingPositions = [
     { x: 0, y: 0 },
-    { x: 7, y: 0 },
     { x: 14, y: 0 },
-    { x: 0, y: 7 },
-    { x: 14, y: 7 },
     { x: 0, y: 14 },
+    { x: 14, y: 14 },
+    { x: 7, y: 0 },
     { x: 7, y: 14 },
-    { x: 14, y: 14 }
+    { x: 0, y: 7 },
+    { x: 14, y: 7 }
 ];
 
-// Function to create a new map with random walls, preserving zeros
+// Function to create a new map with strategic indestructible walls
 function createRandomMap() {
     return new Promise((resolve, reject) => {
         const worker = new Worker(`
             const { parentPort } = require('worker_threads');
 
             function createInitialMap() {
-                return [
-                    [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0],
-                    [0, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 0],
-                    [1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [0, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 2, 1, 2, 2, 2, 1, 2, 1, 2, 1, 2, 1, 2, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 0],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [0, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 0],
-                    [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 2, 1, 0, 0]
+                const size = 15;
+                const map = Array.from({ length: size }, () => Array(size).fill(0));
+
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        if (y % 2 === 0 && x % 2 === 0) {
+                            map[y][x] = 2;
+                        }
+                    }
+                }
+
+                // Ensure player starting areas are clear
+                const playerStarts = [
+                    { x: 0, y: 0 },
+                    { x: 14, y: 0 },
+                    { x: 0, y: 14 },
+                    { x: 14, y: 14 },
+                    { x: 7, y: 0 },
+                    { x: 7, y: 14 },
+                    { x: 0, y: 7 },
+                    { x: 14, y: 7 }
                 ];
+
+                playerStarts.forEach(pos => {
+                    map[pos.y][pos.x] = 0;
+                    const neighbors = [
+                        { x: pos.x - 1, y: pos.y },
+                        { x: pos.x + 1, y: pos.y },
+                        { x: pos.x, y: pos.y - 1 },
+                        { x: pos.x, y: pos.y + 1 },
+                        { x: pos.x - 1, y: pos.y - 1 },
+                        { x: pos.x + 1, y: pos.y - 1 },
+                        { x: pos.x - 1, y: pos.y + 1 },
+                        { x: pos.x + 1, y: pos.y + 1 }
+                    ];
+                    neighbors.forEach(n => {
+                        if (n.x >= 0 && n.x < size && n.y >= 0 && n.y < size) {
+                            map[n.y][n.x] = 0;
+                        }
+                    });
+                });
+
+                return map;
             }
 
             const playerStartingPositions = [
                 { x: 0, y: 0 },
-                { x: 7, y: 0 },
                 { x: 14, y: 0 },
-                { x: 0, y: 7 },
-                { x: 14, y: 7 },
                 { x: 0, y: 14 },
+                { x: 14, y: 14 },
+                { x: 7, y: 0 },
                 { x: 7, y: 14 },
-                { x: 14, y: 14 }
+                { x: 0, y: 7 },
+                { x: 14, y: 7 }
             ];
 
             function isAdjacentToPlayerStart(x, y) {
                 for (let pos of playerStartingPositions) {
                     const dx = Math.abs(pos.x - x);
                     const dy = Math.abs(pos.y - y);
-                    if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                    if ((dx <= 1 && dy <= 1)) {
                         return true;
                     }
                 }
@@ -225,7 +251,7 @@ function createRandomMap() {
                                 if (isAdjacentToPlayerStart(x, y)) {
                                     map[y][x] = 1;
                                 } else {
-                                    map[y][x] = Math.random() < 0.15 ? 2 : 1; // Reduced from 0.2 to 0.15
+                                    map[y][x] = Math.random() < 0.15 ? 2 : 1;
                                 }
                             }
                         }
