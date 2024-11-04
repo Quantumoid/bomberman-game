@@ -50,64 +50,68 @@ app.get('/healthyornot', (req, res) => {
 
 // List of player starting positions
 const playerStartingPositions = [
-    { x: 0, y: 0 },
-    { x: 14, y: 0 },
-    { x: 0, y: 14 },
-    { x: 14, y: 14 }
+    { x: 1, y: 1 },
+    { x: 13, y: 1 },
+    { x: 1, y: 13 },
+    { x: 13, y: 13 }
 ];
 
-// Function to create a new map with random walls, preserving zeros
+// Function to create a new map with strategic indestructible walls
 function createRandomMap() {
     return new Promise((resolve, reject) => {
         const worker = new Worker(`
             const { parentPort } = require('worker_threads');
 
+            const playerStartingPositions = [
+                { x: 1, y: 1 },
+                { x: 13, y: 1 },
+                { x: 1, y: 13 },
+                { x: 13, y: 13 }
+            ];
+
             function createInitialMap() {
-                const size = 15;
-                const map = Array.from({ length: size }, () => Array(size).fill(0));
+                const rows = 15;
+                const cols = 15;
+                const map = Array.from({ length: rows }, () => Array(cols).fill(1));
 
-                // Create indestructible walls around the border
-                for (let i = 0; i < size; i++) {
-                    map[0][i] = 2;
-                    map[size - 1][i] = 2;
-                    map[i][0] = 2;
-                    map[i][size - 1] = 2;
-                }
-
-                // Create a grid pattern of indestructible walls
-                for (let y = 2; y < size - 2; y += 2) {
-                    for (let x = 2; x < size - 2; x += 2) {
-                        map[y][x] = 2;
+                for (let y = 0; y < rows; y++) {
+                    for (let x = 0; x < cols; x++) {
+                        if (y === 0 || y === rows - 1 || x === 0 || x === cols - 1) {
+                            map[y][x] = 2; // Border walls
+                        } else if (y % 2 === 0 && x % 2 === 0) {
+                            map[y][x] = 2; // Indestructible walls
+                        }
                     }
                 }
+
+                // Clear starting positions and their adjacent tiles
+                playerStartingPositions.forEach(pos => {
+                    map[pos.y][pos.x] = 0;
+                    const directions = [
+                        { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+                        { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
+                    ];
+                    directions.forEach(dir => {
+                        const nx = pos.x + dir.dx;
+                        const ny = pos.y + dir.dy;
+                        if (nx > 0 && nx < cols -1 && ny > 0 && ny < rows -1) {
+                            map[ny][nx] = 0;
+                        }
+                    });
+                });
 
                 return map;
             }
 
-            const playerStartingPositions = [
-                { x: 0, y: 0 },
-                { x: 14, y: 0 },
-                { x: 0, y: 14 },
-                { x: 14, y: 14 }
-            ];
-
-            function isAdjacentToPlayerStart(x, y) {
-                for (let pos of playerStartingPositions) {
-                    const dx = Math.abs(pos.x - x);
-                    const dy = Math.abs(pos.y - y);
-                    if ((dx <= 1 && dy <= 1)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
             function populateDestructibleWalls(map) {
-                const size = map.length;
-                for (let y = 0; y < size; y++) {
-                    for (let x = 0; x < size; x++) {
-                        if (map[y][x] === 0 && !isAdjacentToPlayerStart(x, y)) {
-                            map[y][x] = Math.random() < 0.6 ? 1 : 0; // 60% chance for destructible wall
+                for (let y = 1; y < map.length -1; y++) {
+                    for (let x = 1; x < map[0].length -1; x++) {
+                        if (map[y][x] === 1) {
+                            if (Math.random() < 0.7) { // 70% chance to place destructible wall
+                                map[y][x] = 1;
+                            } else {
+                                map[y][x] = 0;
+                            }
                         }
                     }
                 }
@@ -115,37 +119,35 @@ function createRandomMap() {
             }
 
             function ensureConnectivity(map) {
-                const size = map.length;
-                const visited = Array.from({ length: size }, () => Array(size).fill(false));
+                const rows = map.length;
+                const cols = map[0].length;
+                const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
                 const queue = [];
 
                 playerStartingPositions.forEach(pos => {
-                    if (map[pos.y][pos.x] !== 2 && !visited[pos.y][pos.x]) {
-                        queue.push(pos);
-                        visited[pos.y][pos.x] = true;
-                    }
+                    queue.push(pos);
+                    visited[pos.y][pos.x] = true;
                 });
 
                 while (queue.length > 0) {
                     const { x, y } = queue.shift();
-                    const neighbors = [
-                        { x: x - 1, y },
-                        { x: x + 1, y },
-                        { x, y: y - 1 },
-                        { x, y: y + 1 }
+                    const directions = [
+                        { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+                        { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
                     ];
-
-                    neighbors.forEach(({ x: nx, y: ny }) => {
-                        if (nx >= 0 && nx < size && ny >= 0 && ny < size && !visited[ny][nx] && map[ny][nx] !== 2) {
+                    directions.forEach(dir => {
+                        const nx = x + dir.dx;
+                        const ny = y + dir.dy;
+                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx] && map[ny][nx] !== 2) {
                             visited[ny][nx] = true;
                             queue.push({ x: nx, y: ny });
                         }
                     });
                 }
 
-                // Remove disconnected destructible walls
-                for (let y = 0; y < size; y++) {
-                    for (let x = 0; x < size; x++) {
+                // Remove unreachable destructible walls
+                for (let y = 1; y < rows -1; y++) {
+                    for (let x = 1; x < cols -1; x++) {
                         if (map[y][x] === 1 && !visited[y][x]) {
                             map[y][x] = 0;
                         }
@@ -275,7 +277,7 @@ wss.on('connection', (ws) => {
                 const playerNumber = numPlayers + 1; // Assign player number
 
                 // Limit the number of players if necessary
-                if (playerNumber > playerStartingPositions.length) { // Allow up to predefined starting positions
+                if (playerNumber > playerStartingPositions.length) { // Match number of starting positions
                     ws.send(JSON.stringify({ type: 'error', message: 'Game is full.' }));
                     ws.close();
                     return;
@@ -520,7 +522,7 @@ function applyPowerUp(player, powerUp) {
 
 // Function to get player's initial position based on player number
 function getPlayerInitialPosition(playerNumber) {
-    return playerStartingPositions[playerNumber - 1] || { x: 0, y: 0 };
+    return playerStartingPositions[playerNumber - 1] || { x: 1, y: 1 };
 }
 
 // Function to check if a position is valid within the map
@@ -653,8 +655,8 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                         targetPlayer.x = initialPosition.x;
                         targetPlayer.y = initialPosition.y;
                     } else {
-                        targetPlayer.x = 0;
-                        targetPlayer.y = 0;
+                        targetPlayer.x = 1;
+                        targetPlayer.y = 1;
                     }
 
                     // Set invincibility
@@ -700,8 +702,8 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                         player.x = initialPosition.x;
                         player.y = initialPosition.y;
                     } else {
-                        player.x = 0;
-                        player.y = 0;
+                        player.x = 1;
+                        player.y = 1;
                     }
                     player.maxBombs = 1;
                     player.bombRadius = 1;
