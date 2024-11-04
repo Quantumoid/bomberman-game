@@ -551,6 +551,9 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
     const game = games[gamePassword];
     if (!game) return;
 
+    // Prevent processing bombs that have been cleared
+    if (!game.bombs.includes(bomb)) return;
+
     if (explodedBombs.has(bomb)) return;
     explodedBombs.add(bomb);
 
