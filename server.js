@@ -12,23 +12,29 @@ const port = process.env.PORT || 10000;
 
 // Initialize Winston Logger
 const logger = winston.createLogger({
-    level: 'info',
+    level: 'info', // Adjust log level as needed (e.g., 'debug', 'error')
     format: winston.format.combine(
         winston.format.timestamp(),
-        winston.format.json()
+        winston.format.printf(({ timestamp, level, message, ...meta }) => {
+            return `${timestamp} [${level.toUpperCase()}]: ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`;
+        })
     ),
     transports: [
-        new winston.transports.File({ filename: 'error.log', level: 'error' }),
-        new winston.transports.File({ filename: 'combined.log' }),
+        // Console transport - always enabled
+        new winston.transports.Console({
+            format: winston.format.combine(
+                winston.format.colorize(),
+                winston.format.simple()
+            )
+        }),
+
+        // File transports - only in non-production environments
+        ...(process.env.NODE_ENV !== 'production' ? [
+            new winston.transports.File({ filename: 'error.log', level: 'error' }),
+            new winston.transports.File({ filename: 'combined.log' }),
+        ] : [])
     ],
 });
-
-// If not in production, log to the console as well
-if (process.env.NODE_ENV !== 'production') {
-    logger.add(new winston.transports.Console({
-        format: winston.format.simple(),
-    }));
-}
 
 // Rate Limiter to prevent abuse
 const limiter = rateLimit({
