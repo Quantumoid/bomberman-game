@@ -60,7 +60,7 @@ const playerStartingPositions = [
     { x: 14, y: 14 }
 ];
 
-// Function to create a new map with random walls, preserving zeros
+// Function to create a new map with strategic walls, ensuring full connectivity
 function createRandomMap() {
     return new Promise((resolve, reject) => {
         const worker = new Worker(`
@@ -108,130 +108,114 @@ function createRandomMap() {
                 return false;
             }
 
-            function connectMap(map) {
-                const rows = map.length;
-                const cols = map[0].length;
-                const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-                const queue = [];
+            function generateStrategicWalls(map) {
+                // Symmetric walls
+                for (let y = 0; y < map.length; y++) {
+                    for (let x = 0; x < Math.floor(map[0].length / 2); x++) {
+                        const mirrorX = map[0].length - 1 - x;
+                        if (map[y][x] === 1 || map[y][x] === 2) {
+                            map[y][mirrorX] = map[y][x];
+                        }
+                    }
+                }
 
-                playerStartingPositions.forEach(pos => {
-                    if (!visited[pos.y][pos.x]) {
-                        queue.push(pos);
-                        visited[pos.y][pos.x] = true;
+                // Central horizontal choke point
+                const centralY = Math.floor(map.length / 2);
+                for (let x = 2; x < map[0].length - 2; x++) {
+                    map[centralY][x] = 2; // Indestructible wall
+                }
+
+                // Vertical walls in specific columns
+                const verticalColumns = [3, 11];
+                verticalColumns.forEach(col => {
+                    for (let y = 2; y < map.length - 2; y++) {
+                        map[y][col] = 2;
                     }
                 });
 
-                let head = 0;
-                while (head < queue.length) {
-                    const { x, y } = queue[head++];
-                    const neighbors = [
-                        { x: x - 1, y },
-                        { x: x + 1, y },
-                        { x, y: y - 1 },
-                        { x, y: y + 1 }
+                return map;
+            }
+
+            // Flood Fill to ensure all destructible walls are reachable
+            function ensureFullConnectivity(map) {
+                const rows = map.length;
+                const cols = map[0].length;
+                const reachable = Array.from({ length: rows }, () => Array(cols).fill(false));
+
+                // Initialize queue with all player starting positions
+                const queue = [...playerStartingPositions];
+                queue.forEach(pos => {
+                    reachable[pos.y][pos.x] = true;
+                });
+
+                // BFS to mark reachable tiles
+                while (queue.length > 0) {
+                    const { x, y } = queue.shift();
+                    const directions = [
+                        { dx: -1, dy: 0 },
+                        { dx: 1, dy: 0 },
+                        { dx: 0, dy: -1 },
+                        { dx: 0, dy: 1 }
                     ];
 
-                    neighbors.forEach(({ x: nx, y: ny }) => {
-                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx]) {
-                            const tile = map[ny][nx];
-                            if (tile !== 2) {
-                                visited[ny][nx] = true;
+                    directions.forEach(dir => {
+                        const nx = x + dir.dx;
+                        const ny = y + dir.dy;
+
+                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !reachable[ny][nx]) {
+                            if (map[ny][nx] !== 2) { // Can't pass through indestructible walls
+                                reachable[ny][nx] = true;
                                 queue.push({ x: nx, y: ny });
                             }
                         }
                     });
                 }
 
-                let madeProgress = true;
-                let iteration = 0;
-                const MAX_ITERATIONS = 1000;
-
-                while (madeProgress && iteration < MAX_ITERATIONS) {
-                    madeProgress = false;
-                    iteration++;
-                    for (let y = 0; y < rows; y++) {
-                        for (let x = 0; x < cols; x++) {
-                            if (map[y][x] === 1 && !visited[y][x]) {
-                                const path = findPathToVisited(map, visited, x, y);
-                                if (path) {
-                                    path.forEach(({ x: px, y: py }) => {
-                                        if (map[py][px] === 2) {
-                                            map[py][px] = 1;
-                                        }
-                                        visited[py][px] = true;
-                                    });
-                                    madeProgress = true;
+                // Check if all destructible walls are reachable
+                let allReachable = true;
+                for (let y = 0; y < rows; y++) {
+                    for (let x = 0; x < cols; x++) {
+                        if (map[y][x] === 1 && !reachable[y][x]) {
+                            allReachable = false;
+                            // Attempt to connect by removing an indestructible wall adjacent to the unreachable wall
+                            const directions = [
+                                { dx: -1, dy: 0 },
+                                { dx: 1, dy: 0 },
+                                { dx: 0, dy: -1 },
+                                { dx: 0, dy: 1 }
+                            ];
+                            for (let dir of directions) {
+                                const nx = x + dir.dx;
+                                const ny = y + dir.dy;
+                                if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && map[ny][nx] === 2) {
+                                    map[ny][nx] = 1; // Convert to destructible wall
+                                    reachable[y][x] = true;
+                                    queue.push({ x: x, y: y });
+                                    break;
                                 }
                             }
                         }
                     }
                 }
 
-                if (iteration === MAX_ITERATIONS) {
-                    parentPort.postMessage({ error: 'connectMap reached maximum iterations. Map may not be fully connected.' });
+                if (!allReachable) {
+                    // Recursive call to ensure connectivity after adjustments
+                    return ensureFullConnectivity(map);
                 }
-            }
 
-            function findPathToVisited(map, visited, startX, startY) {
-                const rows = map.length;
-                const cols = map[0].length;
-                const queue = [{ x: startX, y: startY, path: [] }];
-                const seen = Array.from({ length: rows }, () => Array(cols).fill(false));
-                seen[startY][startX] = true;
-
-                let head = 0;
-                while (head < queue.length) {
-                    const { x, y, path } = queue[head++];
-                    const neighbors = [
-                        { x: x - 1, y },
-                        { x: x + 1, y },
-                        { x, y: y - 1 },
-                        { x, y: y + 1 }
-                    ];
-
-                    for (let neighbor of neighbors) {
-                        const nx = neighbor.x;
-                        const ny = neighbor.y;
-
-                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !seen[ny][nx]) {
-                            seen[ny][nx] = true;
-                            const tile = map[ny][nx];
-                            const newPath = [...path, { x: nx, y: ny }];
-
-                            if (visited[ny][nx]) {
-                                return newPath;
-                            }
-
-                            if (tile === 2 || tile === 1 || tile === 0) {
-                                queue.push({ x: nx, y: ny, path: newPath });
-                            }
-                        }
-                    }
-                }
-                return null;
+                return map;
             }
 
             parentPort.on('message', () => {
                 try {
-                    const initialMap = createInitialMap();
-                    const map = [];
+                    let map = createInitialMap();
 
-                    for (let y = 0; y < initialMap.length; y++) {
-                        map[y] = [];
-                        for (let x = 0; x < initialMap[y].length; x++) {
-                            if (initialMap[y][x] === 0) {
-                                map[y][x] = 0;
-                            } else {
-                                if (isAdjacentToPlayerStart(x, y)) {
-                                    map[y][x] = 1;
-                                } else {
-                                    map[y][x] = Math.random() < 0.15 ? 2 : 1; // Reduced from 0.2 to 0.15
-                                }
-                            }
-                        }
-                    }
+                    // Apply strategic wall placements
+                    map = generateStrategicWalls(map);
 
-                    connectMap(map);
+                    // Ensure full connectivity
+                    map = ensureFullConnectivity(map);
+
                     parentPort.postMessage({ map });
                 } catch (error) {
                     parentPort.postMessage({ error: error.message });
@@ -257,7 +241,9 @@ function createRandomMap() {
 
 // Function to check if all starting positions are connected
 function areAllStartingPositionsConnected(map) {
-    const visited = Array.from({ length: map.length }, () => Array(map[0].length).fill(false));
+    const rows = map.length;
+    const cols = map[0].length;
+    const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
     const queue = [];
 
     // Start BFS from the first starting position
@@ -275,7 +261,7 @@ function areAllStartingPositionsConnected(map) {
         ];
 
         neighbors.forEach(({ x: nx, y: ny }) => {
-            if (nx >= 0 && nx < map[0].length && ny >= 0 && ny < map.length && !visited[ny][nx] && map[ny][nx] !== 2) {
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx] && map[ny][nx] !== 2) {
                 visited[ny][nx] = true;
                 queue.push({ x: nx, y: ny });
             }
