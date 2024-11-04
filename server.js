@@ -121,6 +121,34 @@ function createRandomMap() {
                 return playerStartingPositions.some(pos => pos.x === x && pos.y === y);
             }
 
+            function generateStrategicWalls(map) {
+                // Symmetric walls
+                for (let y = 0; y < map.length; y++) {
+                    for (let x = 0; x < Math.floor(map[0].length / 2); x++) {
+                        const mirrorX = map[0].length - 1 - x;
+                        if (map[y][x] === 1 || map[y][x] === 2) {
+                            map[y][mirrorX] = map[y][x];
+                        }
+                    }
+                }
+
+                // Central horizontal choke point
+                const centralY = Math.floor(map.length / 2);
+                for (let x = 2; x < map[0].length - 2; x++) {
+                    map[centralY][x] = 2; // Indestructible wall
+                }
+
+                // Vertical walls in specific columns
+                const verticalColumns = [3, 11];
+                verticalColumns.forEach(col => {
+                    for (let y = 2; y < map.length - 2; y++) {
+                        map[y][col] = 2;
+                    }
+                });
+
+                return map;
+            }
+
             // Flood Fill to ensure all destructible walls are reachable
             function ensureFullConnectivity(map) {
                 const rows = map.length;
@@ -194,6 +222,9 @@ function createRandomMap() {
             parentPort.on('message', () => {
                 try {
                     let map = createInitialMap();
+
+                    // Apply strategic wall placements
+                    map = generateStrategicWalls(map);
 
                     // Ensure full connectivity
                     map = ensureFullConnectivity(map);
