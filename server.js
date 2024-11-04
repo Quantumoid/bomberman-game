@@ -225,7 +225,7 @@ function createRandomMap() {
                                 if (isAdjacentToPlayerStart(x, y)) {
                                     map[y][x] = 1;
                                 } else {
-                                    map[y][x] = Math.random() < 0.1 ? 2 : 1; // Reduced from 0.2 to 0.1
+                                    map[y][x] = Math.random() < 0.15 ? 2 : 1; // Reduced from 0.2 to 0.15
                                 }
                             }
                         }
