@@ -23,7 +23,7 @@ function log(level, message) {
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 200, // limit each IP to 200 requests per windowMs
+    max: 400, // limit each IP to 200 requests per windowMs
     message: 'Too many requests from this IP, please try again after a minute.',
 });
 
@@ -32,7 +32,7 @@ app.use(generalLimiter);
 // Specific Rate Limiter for /create-game to prevent abuse
 const createGameLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 30, // limit each IP to 30 create-game requests per windowMs
+    max: 10, // limit each IP to 30 create-game requests per windowMs
     message: 'Too many game creation requests from this IP, please try again after a minute.',
 });
 
