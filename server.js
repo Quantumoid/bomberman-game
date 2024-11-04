@@ -4,20 +4,40 @@ const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const os = require('os');
+const rateLimit = require('express-rate-limit');
+const winston = require('winston');
 
 const app = express();
 const port = process.env.PORT || 10000;
 
-// Create HTTP server and bind to all interfaces
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+// Initialize Winston Logger
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+    ),
+    transports: [
+        new winston.transports.File({ filename: 'error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'combined.log' }),
+    ],
+});
 
-// Increase server timeouts to prevent Render from marking it unhealthy
-server.keepAliveTimeout = 120000; // 2 minutes
-server.headersTimeout = 120000; // 2 minutes
+// If not in production, log to the console as well
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.simple(),
+    }));
+}
 
-// Store all active games
-const games = {};
+// Rate Limiter to prevent abuse
+const limiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 200, // limit each IP to 200 requests per windowMs
+    message: 'Too many requests from this IP, please try again after a minute.',
+});
+
+app.use(limiter);
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -215,56 +235,16 @@ function findPathToVisited(map, visited, startX, startY) {
     return null; // No path found
 }
 
-// Endpoint to create a new game with a unique URL
-app.get('/create-game', (req, res) => {
-    const password = uuidv4();
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers.host;
-    const gameUrl = `${protocol}://${host}/game/${password}`;
+// Create HTTP server and bind to all interfaces
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-    games[password] = {
-        password: password,
-        url: gameUrl,
-        players: {},
-        bombs: [],
-        clients: new Set(),
-        createdAt: new Date(),
-        map: createRandomMap(),
-        powerUps: {},
-        timeout: setTimeout(() => {
-            if (Object.keys(games[password].players).length === 0) {
-                console.log(`No players joined game ${password} within 5 minutes. Deleting game.`);
-                // Clear all bomb timeouts
-                games[password].bombs.forEach(bomb => {
-                    if (bomb.timerId) {
-                        clearTimeout(bomb.timerId);
-                    }
-                });
-                delete games[password];
-            }
-        }, 300000) // 5 minutes in milliseconds
-    };
-    console.log(`Game created with password: ${password}`);
-    res.json({ url: gameUrl });
-});
+// Increase server timeouts to prevent Render from marking it unhealthy
+server.keepAliveTimeout = 120000; // 2 minutes
+server.headersTimeout = 120000;    // 2 minutes
 
-// Serve game page
-app.get('/game/:password', (req, res) => {
-    const { password } = req.params;
-    if (games[password]) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    } else {
-        res.status(404).send("Game not found.");
-    }
-});
-
-// Function to check if a position is walkable
-function isWalkable(x, y, game) {
-    const tile = game.map[y][x];
-    // Check if there's a bomb at this position
-    const hasBomb = game.bombs.some(bomb => bomb.x === x && bomb.y === y);
-    return (tile === 0 || tile === 3) && !hasBomb;
-}
+// Store all active games
+const games = {};
 
 // WebSocket connection handling
 wss.on('connection', (ws) => {
@@ -352,7 +332,7 @@ wss.on('connection', (ws) => {
                     players: game.players
                 });
 
-                console.log(`Player ${nickname} joined game ${gamePassword} as Player ${playerNumber}`);
+                logger.info(`Player ${nickname} joined game ${gamePassword} as Player ${playerNumber}`);
             }
 
             if (data.type === 'move') {
@@ -445,7 +425,7 @@ wss.on('connection', (ws) => {
             }
 
         } catch (error) {
-            console.error('Error handling message:', error);
+            logger.error(`Error handling message: ${error.message}`);
             ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format.' }));
         }
     });
@@ -455,7 +435,7 @@ wss.on('connection', (ws) => {
             const game = games[gamePassword];
             const player = game.players[playerId];
             if (player) {
-                console.log(`Player ${player.nickname} left game ${gamePassword}`);
+                logger.info(`Player ${player.nickname} left game ${gamePassword}`);
                 delete game.players[playerId];
                 game.clients.delete(ws);
 
@@ -471,23 +451,32 @@ wss.on('connection', (ws) => {
                     players: game.players
                 });
 
+                // Clean up bombs placed by the leaving player
+                game.bombs = game.bombs.filter(bomb => {
+                    if (bomb.owner === playerId) {
+                        if (bomb.timerId) clearTimeout(bomb.timerId);
+                        return false;
+                    }
+                    return true;
+                });
+
                 // If no clients remain, delete the game
                 if (game.clients.size === 0) {
-                    console.log(`No more players in game ${gamePassword}. Deleting game.`);
-                    // Clear all bomb timeouts
-                    game.bombs.forEach(bomb => {
-                        if (bomb.timerId) {
-                            clearTimeout(bomb.timerId);
-                        }
-                    });
+                    logger.info(`Deleting empty game ${gamePassword}`);
                     // Clear game creation timeout
-                    if (game.timeout) {
-                        clearTimeout(game.timeout);
-                    }
+                    if (game.timeout) clearTimeout(game.timeout);
+                    // Clear remaining bomb timeouts
+                    game.bombs.forEach(bomb => {
+                        if (bomb.timerId) clearTimeout(bomb.timerId);
+                    });
                     delete games[gamePassword];
                 }
             }
         }
+    });
+
+    ws.on('error', (error) => {
+        logger.error(`WebSocket error: ${error.message}`);
     });
 });
 
@@ -533,7 +522,7 @@ function broadcastToGame(gamePassword, data, excludeWs = null) {
                 try {
                     client.send(JSON.stringify(data));
                 } catch (error) {
-                    console.error('Error broadcasting to client:', error);
+                    logger.error(`Error broadcasting to client: ${error.message}`);
                 }
             }
         });
@@ -694,7 +683,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                 player.invincible = false;
             });
 
-            console.log(`All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
+            logger.info(`All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
 
             // Notify clients about the new map
             broadcastToGame(gamePassword, {
@@ -705,7 +694,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
             });
         }
     } catch (error) {
-        console.error('Error during bomb explosion:', error);
+        logger.error(`Error during bomb explosion: ${error.message}`);
     }
 }
 
@@ -721,10 +710,59 @@ function isAllBricksDestroyed(map) {
     return true;
 }
 
+// Endpoint to create a new game with a unique URL
+app.get('/create-game', (req, res) => {
+    const password = uuidv4();
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const gameUrl = `${protocol}://${host}/game/${password}`;
+
+    games[password] = {
+        password: password,
+        url: gameUrl,
+        players: {},
+        bombs: [],
+        clients: new Set(),
+        createdAt: new Date(),
+        map: createRandomMap(),
+        powerUps: {},
+        timeout: setTimeout(() => {
+            if (Object.keys(games[password].players).length === 0) {
+                logger.info(`No players joined game ${password} within 5 minutes. Deleting game.`);
+                // Clear all bomb timeouts
+                games[password].bombs.forEach(bomb => {
+                    if (bomb.timerId) clearTimeout(bomb.timerId);
+                });
+                delete games[password];
+            }
+        }, 300000) // 5 minutes in milliseconds
+    };
+    logger.info(`Game created with password: ${password}`);
+    res.json({ url: gameUrl });
+});
+
+// Serve game page
+app.get('/game/:password', (req, res) => {
+    const { password } = req.params;
+    if (games[password]) {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    } else {
+        res.status(404).send("Game not found.");
+    }
+});
+
+// Function to check if a position is walkable
+function isWalkable(x, y, game) {
+    const tile = game.map[y][x];
+    // Check if there's a bomb at this position
+    const hasBomb = game.bombs.some(bomb => bomb.x === x && bomb.y === y);
+    return (tile === 0 || tile === 3) && !hasBomb;
+}
+
 // Start the server and listen on all network interfaces
 server.listen(port, '0.0.0.0', () => {
-    console.log(`Server is running on port ${port}`);
-    console.log(`Accessible online at http://${getLocalIPAddress()}:${port}`);
+    logger.info(`Server is running on port ${port}`);
+    logger.info(`Accessible online at http://${getLocalIPAddress()}:${port}`);
 });
 
 // Function to get the local IP address of the server
@@ -740,16 +778,17 @@ function getLocalIPAddress() {
     return '0.0.0.0';
 }
 
+// Graceful Shutdown
 function gracefulShutdown() {
-    console.log('Received kill signal, shutting down gracefully.');
+    logger.info('Received kill signal, shutting down gracefully.');
     server.close(() => {
-        console.log('Closed out remaining connections.');
+        logger.info('Closed out remaining connections.');
         process.exit(0);
     });
 
     // Force shutdown after 10 seconds
     setTimeout(() => {
-        console.error('Could not close connections in time, forcefully shutting down');
+        logger.error('Could not close connections in time, forcefully shutting down');
         process.exit(1);
     }, 10000);
 }
@@ -759,11 +798,13 @@ process.on('SIGINT', gracefulShutdown);
 
 // Handle Uncaught Exceptions and Unhandled Rejections to prevent server crashes
 process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err);
-    // process.exit(1);
+    logger.error(`Uncaught Exception: ${err.message}`);
+    // Optionally restart the server or perform cleanup
+    gracefulShutdown();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    // process.exit(1);
+    logger.error(`Unhandled Rejection at: ${promise} reason: ${reason}`);
+    // Optionally restart the server or perform cleanup
+    gracefulShutdown();
 });
