@@ -84,7 +84,7 @@ function createRandomMap() {
                 // Randomly place indestructible walls inside the map with symmetry
                 for (let y = 1; y < rows - 1; y++) {
                     for (let x = 1; x < Math.floor(cols / 2); x++) {
-                        if (Math.random() < 0.15) { // Reduced to 15% probability
+                        if (Math.random() < 0.10) { // Further reduced to 10% probability
                             map[y][x] = 2;
                             map[y][cols - 1 - x] = 2; // Symmetric placement
                         }
@@ -95,13 +95,23 @@ function createRandomMap() {
                 for (let y = 1; y < rows - 1; y++) {
                     for (let x = 1; x < cols - 1; x++) {
                         if (map[y][x] === 0 && !isPlayerStartingPosition(x, y)) {
-                            if (Math.random() < 0.25) { // Reduced to 25% probability
+                            if (Math.random() < 0.20) { // Further reduced to 20% probability
                                 map[y][x] = 1;
                                 map[y][cols - 1 - x] = 1; // Symmetric placement
                             }
                         }
                     }
                 }
+
+                // Ensure starting positions have open adjacent tiles
+                playerStartingPositions.forEach(pos => {
+                    const adjacent = getAdjacentPositions(pos.x, pos.y, map);
+                    adjacent.forEach(adj => {
+                        if (isPositionValid(adj.x, adj.y, map)) {
+                            map[adj.y][adj.x] = 0;
+                        }
+                    });
+                });
 
                 return map;
             }
@@ -119,6 +129,16 @@ function createRandomMap() {
 
             function isPlayerStartingPosition(x, y) {
                 return playerStartingPositions.some(pos => pos.x === x && pos.y === y);
+            }
+
+            function getAdjacentPositions(x, y, map) {
+                const directions = [
+                    { dx: -1, dy: 0 },
+                    { dx: 1, dy: 0 },
+                    { dx: 0, dy: -1 },
+                    { dx: 0, dy: 1 }
+                ];
+                return directions.map(dir => ({ x: x + dir.dx, y: y + dir.dy }));
             }
 
             function generateStrategicWalls(map) {
