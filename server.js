@@ -431,8 +431,8 @@ wss.on('connection', (ws) => {
             }
 
         } catch (error) {
-            logger.error(`Error handling message: ${error.message}`);
-            ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format.' }));
+            logger.error(`WebSocket Error handling message: ${error.message}`);
+            ws.send(JSON.stringify({ type: 'error', message: 'Internal server error.' }));
         }
     });
 
@@ -717,34 +717,39 @@ function isAllBricksDestroyed(map) {
 }
 
 // Endpoint to create a new game with a unique URL
-app.get('/create-game', (req, res) => {
-    const password = uuidv4();
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers.host;
-    const gameUrl = `${protocol}://${host}/game/${password}`;
+app.get('/create-game', (req, res, next) => {
+    try {
+        const password = uuidv4();
+        const protocol = req.headers['x-forwarded-proto'] || 'http';
+        const host = req.headers.host;
+        const gameUrl = `${protocol}://${host}/game/${password}`;
 
-    games[password] = {
-        password: password,
-        url: gameUrl,
-        players: {},
-        bombs: [],
-        clients: new Set(),
-        createdAt: new Date(),
-        map: createRandomMap(),
-        powerUps: {},
-        timeout: setTimeout(() => {
-            if (Object.keys(games[password].players).length === 0) {
-                logger.info(`No players joined game ${password} within 5 minutes. Deleting game.`);
-                // Clear all bomb timeouts
-                games[password].bombs.forEach(bomb => {
-                    if (bomb.timerId) clearTimeout(bomb.timerId);
-                });
-                delete games[password];
-            }
-        }, 300000) // 5 minutes in milliseconds
-    };
-    logger.info(`Game created with password: ${password}`);
-    res.json({ url: gameUrl });
+        games[password] = {
+            password: password,
+            url: gameUrl,
+            players: {},
+            bombs: [],
+            clients: new Set(),
+            createdAt: new Date(),
+            map: createRandomMap(),
+            powerUps: {},
+            timeout: setTimeout(() => {
+                if (Object.keys(games[password].players).length === 0) {
+                    logger.info(`No players joined game ${password} within 5 minutes. Deleting game.`);
+                    // Clear all bomb timeouts
+                    games[password].bombs.forEach(bomb => {
+                        if (bomb.timerId) clearTimeout(bomb.timerId);
+                    });
+                    delete games[password];
+                }
+            }, 300000) // 5 minutes in milliseconds
+        };
+        logger.info(`Game created with password: ${password}`);
+        res.json({ url: gameUrl });
+    } catch (error) {
+        logger.error(`Error creating game: ${error.message}`);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
 // Serve game page
@@ -764,6 +769,12 @@ function isWalkable(x, y, game) {
     const hasBomb = game.bombs.some(bomb => bomb.x === x && bomb.y === y);
     return (tile === 0 || tile === 3) && !hasBomb;
 }
+
+// Global Express Error Handler
+app.use((err, req, res, next) => {
+    logger.error(`Express Error: ${err.message}`);
+    res.status(500).json({ error: 'Internal Server Error' });
+});
 
 // Start the server and listen on all network interfaces
 server.listen(port, '0.0.0.0', () => {
