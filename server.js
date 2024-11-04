@@ -84,7 +84,7 @@ function createRandomMap() {
                 // Randomly place indestructible walls inside the map with symmetry
                 for (let y = 1; y < rows - 1; y++) {
                     for (let x = 1; x < Math.floor(cols / 2); x++) {
-                        if (Math.random() < 0.2) { // 20% chance to place an indestructible wall
+                        if (Math.random() < 0.15) { // Reduced to 15% probability
                             map[y][x] = 2;
                             map[y][cols - 1 - x] = 2; // Symmetric placement
                         }
@@ -95,7 +95,7 @@ function createRandomMap() {
                 for (let y = 1; y < rows - 1; y++) {
                     for (let x = 1; x < cols - 1; x++) {
                         if (map[y][x] === 0 && !isPlayerStartingPosition(x, y)) {
-                            if (Math.random() < 0.3) { // 30% chance to place a destructible wall
+                            if (Math.random() < 0.25) { // Reduced to 25% probability
                                 map[y][x] = 1;
                                 map[y][cols - 1 - x] = 1; // Symmetric placement
                             }
@@ -122,23 +122,23 @@ function createRandomMap() {
             }
 
             function generateStrategicWalls(map) {
-                // Central horizontal choke point with openings
+                // Central horizontal choke point with more frequent openings
                 const centralY = Math.floor(map.length / 2);
                 for (let x = 2; x < map[0].length - 2; x++) {
-                    // Leave openings at intervals
-                    if (x % 4 !== 0) { // Leave an opening every 4 tiles
+                    // Leave openings every 3 tiles instead of 4
+                    if (x % 3 !== 0) { // Increased opening frequency
                         map[centralY][x] = 2; // Indestructible wall
                     } else {
                         map[centralY][x] = 0; // Opening
                     }
                 }
 
-                // Vertical walls in specific columns with openings
+                // Vertical walls in specific columns with more frequent openings
                 const verticalColumns = [3, 11];
                 verticalColumns.forEach(col => {
                     for (let y = 2; y < map.length - 2; y++) {
-                        // Leave openings at intervals
-                        if (y % 4 !== 0) { // Leave an opening every 4 tiles
+                        // Leave openings every 3 tiles instead of 4
+                        if (y % 3 !== 0) { // Increased opening frequency
                             map[y][col] = 2;
                         } else {
                             map[y][col] = 0; // Opening
@@ -291,7 +291,7 @@ function areAllStartingPositionsConnected(map) {
 }
 
 // Retry logic for createRandomMap
-async function createRandomMapWithRetries(maxRetries = 5) {
+async function createRandomMapWithRetries(maxRetries = 10) { // Increased maxRetries to 10
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             const map = await createRandomMap();
