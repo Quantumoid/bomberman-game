@@ -6,7 +6,6 @@ const path = require('path');
 const os = require('os');
 const rateLimit = require('express-rate-limit');
 const winston = require('winston');
-const compression = require('compression'); // Optional: For Gzip compression
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -40,14 +39,8 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-// Optional: Enable Gzip compression
-app.use(compression());
-
-// Serve static files from the 'public' directory with caching
-app.use(express.static(path.join(__dirname, 'public'), {
-    maxAge: '1d', // Cache static assets for 1 day
-    etag: false,
-}));
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Health Check Endpoint
 app.get('/healthyornot', (req, res) => {
@@ -242,55 +235,6 @@ function findPathToVisited(map, visited, startX, startY) {
     return null; // No path found
 }
 
-// Endpoint to create a new game with a unique URL
-app.get('/create-game', (req, res) => {
-    const password = uuidv4();
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers.host;
-    const gameUrl = `${protocol}://${host}/game/${password}`;
-
-    games[password] = {
-        password: password,
-        url: gameUrl,
-        players: {},
-        bombs: [],
-        clients: new Set(),
-        createdAt: new Date(),
-        map: createRandomMap(),
-        powerUps: {},
-        timeout: setTimeout(() => {
-            if (Object.keys(games[password].players).length === 0) {
-                logger.info(`No players joined game ${password} within 5 minutes. Deleting game.`);
-                // Clear all bomb timeouts
-                games[password].bombs.forEach(bomb => {
-                    if (bomb.timerId) clearTimeout(bomb.timerId);
-                });
-                delete games[password];
-            }
-        }, 300000) // 5 minutes in milliseconds
-    };
-    logger.info(`Game created with password: ${password}`);
-    res.json({ url: gameUrl });
-});
-
-// Serve game page
-app.get('/game/:password', (req, res) => {
-    const { password } = req.params;
-    if (games[password]) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    } else {
-        res.status(404).send("Game not found.");
-    }
-});
-
-// Function to check if a position is walkable
-function isWalkable(x, y, game) {
-    const tile = game.map[y][x];
-    // Check if there's a bomb at this position
-    const hasBomb = game.bombs.some(bomb => bomb.x === x && bomb.y === y);
-    return (tile === 0 || tile === 3) && !hasBomb;
-}
-
 // Create HTTP server and bind to all interfaces
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -306,12 +250,6 @@ const games = {};
 wss.on('connection', (ws) => {
     let playerId;
     let gamePassword;
-
-    // Initialize heartbeat for WebSocket
-    ws.isAlive = true;
-    ws.on('pong', () => {
-        ws.isAlive = true;
-    });
 
     ws.on('message', (message) => {
         try {
@@ -772,6 +710,61 @@ function isAllBricksDestroyed(map) {
     return true;
 }
 
+// Endpoint to create a new game with a unique URL
+app.get('/create-game', (req, res) => {
+    const password = uuidv4();
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const gameUrl = `${protocol}://${host}/game/${password}`;
+
+    games[password] = {
+        password: password,
+        url: gameUrl,
+        players: {},
+        bombs: [],
+        clients: new Set(),
+        createdAt: new Date(),
+        map: createRandomMap(),
+        powerUps: {},
+        timeout: setTimeout(() => {
+            if (Object.keys(games[password].players).length === 0) {
+                logger.info(`No players joined game ${password} within 5 minutes. Deleting game.`);
+                // Clear all bomb timeouts
+                games[password].bombs.forEach(bomb => {
+                    if (bomb.timerId) clearTimeout(bomb.timerId);
+                });
+                delete games[password];
+            }
+        }, 300000) // 5 minutes in milliseconds
+    };
+    logger.info(`Game created with password: ${password}`);
+    res.json({ url: gameUrl });
+});
+
+// Serve game page
+app.get('/game/:password', (req, res) => {
+    const { password } = req.params;
+    if (games[password]) {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    } else {
+        res.status(404).send("Game not found.");
+    }
+});
+
+// Function to check if a position is walkable
+function isWalkable(x, y, game) {
+    const tile = game.map[y][x];
+    // Check if there's a bomb at this position
+    const hasBomb = game.bombs.some(bomb => bomb.x === x && bomb.y === y);
+    return (tile === 0 || tile === 3) && !hasBomb;
+}
+
+// Start the server and listen on all network interfaces
+server.listen(port, '0.0.0.0', () => {
+    logger.info(`Server is running on port ${port}`);
+    logger.info(`Accessible online at http://${getLocalIPAddress()}:${port}`);
+});
+
 // Function to get the local IP address of the server
 function getLocalIPAddress() {
     const networkInterfaces = os.networkInterfaces();
@@ -784,12 +777,6 @@ function getLocalIPAddress() {
     }
     return '0.0.0.0';
 }
-
-// Start the server and listen on all network interfaces
-server.listen(port, '0.0.0.0', () => {
-    logger.info(`Server is running on port ${port}`);
-    logger.info(`Accessible online at http://${getLocalIPAddress()}:${port}`);
-});
 
 // Graceful Shutdown
 function gracefulShutdown() {
@@ -812,10 +799,12 @@ process.on('SIGINT', gracefulShutdown);
 // Handle Uncaught Exceptions and Unhandled Rejections to prevent server crashes
 process.on('uncaughtException', (err) => {
     logger.error(`Uncaught Exception: ${err.message}`);
+    // Optionally restart the server or perform cleanup
     gracefulShutdown();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     logger.error(`Unhandled Rejection at: ${promise} reason: ${reason}`);
+    // Optionally restart the server or perform cleanup
     gracefulShutdown();
 });
