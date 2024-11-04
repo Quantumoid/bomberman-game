@@ -11,7 +11,7 @@ const app = express();
 const port = process.env.PORT || 10000;
 
 // Maximum number of active games
-const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 20;
+const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 22;
 
 // Simple Logger Function with Custom Timestamp
 function log(level, message) {
@@ -23,7 +23,7 @@ function log(level, message) {
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 500, // limit each IP to 500 requests per windowMs
+    max: 1000, // limit each IP to 500 requests per windowMs
     message: 'Too many requests from this IP, please try again after a minute.',
 });
 
@@ -32,7 +32,7 @@ app.use(generalLimiter);
 // Specific Rate Limiter for /create-game to prevent abuse
 const createGameLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 100, // limit each IP to 100 create-game requests per windowMs
+    max: 20, // limit each IP to 100 create-game requests per windowMs
     message: 'Too many game creation requests from this IP, please try again after a minute.',
 });
 
