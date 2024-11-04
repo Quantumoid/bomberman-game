@@ -691,6 +691,12 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
         if (isAllBricksDestroyed(game.map)) {
             // Generate a new map
             createRandomMapWithRetries().then(newMap => {
+                // Clear all existing bombs and their timeouts
+                game.bombs.forEach(bomb => {
+                    if (bomb.timerId) clearTimeout(bomb.timerId);
+                });
+                game.bombs = [];
+
                 game.map = newMap;
                 game.powerUps = new Map(); // Reset power-ups
 
