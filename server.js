@@ -13,13 +13,6 @@ const port = process.env.PORT || 10000;
 // Maximum number of active games
 const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 22;
 
-// Simple Logger Function with Custom Timestamp
-function log(level, message) {
-    const timestamp = new Date().toISOString();
-    const levelUpper = level.toUpperCase();
-    console.log(`${timestamp} [${levelUpper}]: ${message}`);
-}
-
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
