@@ -23,7 +23,7 @@ function log(level, message) {
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 400, // limit each IP to 400 requests per windowMs
+    max: 500, // limit each IP to 500 requests per windowMs
     message: 'Too many requests from this IP, please try again after a minute.',
 });
 
@@ -32,7 +32,7 @@ app.use(generalLimiter);
 // Specific Rate Limiter for /create-game to prevent abuse
 const createGameLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 10, // limit each IP to 10 create-game requests per windowMs
+    max: 100, // limit each IP to 100 create-game requests per windowMs
     message: 'Too many game creation requests from this IP, please try again after a minute.',
 });
 
@@ -226,7 +226,7 @@ function createRandomMap() {
                                 if (isAdjacentToPlayerStart(x, y)) {
                                     map[y][x] = 1;
                                 } else {
-                                    map[y][x] = Math.random() < 0.2 ? 2 : 1;
+                                    map[y][x] = Math.random() < 0.1 ? 2 : 1; // Reduced from 0.2 to 0.1
                                 }
                             }
                         }
@@ -929,22 +929,3 @@ process.on('unhandledRejection', (reason, promise) => {
     log('error', `Unhandled Rejection at: ${promise} reason: ${reason}`);
     gracefulShutdown();
 });
-
-// Helper function to create map with retries
-async function createRandomMapWithRetries(maxRetries = 5) {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            const map = await createRandomMap();
-            if (areAllStartingPositionsConnected(map)) {
-                return map;
-            } else {
-                throw new Error('Generated map does not connect all starting positions.');
-            }
-        } catch (error) {
-            log('warn', `Map generation attempt ${attempt} failed: ${error.message}`);
-            if (attempt === maxRetries) {
-                throw error;
-            }
-        }
-    }
-}
