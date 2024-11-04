@@ -60,26 +60,13 @@ const playerStartingPositions = [
     { x: 14, y: 7 }
 ];
 
-<<<<<<< HEAD
-// Function to create a new map with strategic indestructible walls
-=======
 // Function to create a new map with strategic walls, ensuring full connectivity
->>>>>>> 2a30342feb15935366281b1c4bc8c31009175ffd
 function createRandomMap() {
     return new Promise((resolve, reject) => {
         const worker = new Worker(`
             const { parentPort } = require('worker_threads');
 
             function createInitialMap() {
-<<<<<<< HEAD
-                const size = 15;
-                const map = Array.from({ length: size }, () => Array(size).fill(0));
-
-                for (let y = 0; y < size; y++) {
-                    for (let x = 0; x < size; x++) {
-                        if (y % 2 === 0 && x % 2 === 0) {
-                            map[y][x] = 2;
-=======
                 const rows = 15;
                 const cols = 15;
                 const map = Array.from({ length: rows }, () => Array(cols).fill(0));
@@ -100,40 +87,10 @@ function createRandomMap() {
                         if (Math.random() < 0.10) { // Further reduced to 10% probability
                             map[y][x] = 2;
                             map[y][cols - 1 - x] = 2; // Symmetric placement
->>>>>>> 2a30342feb15935366281b1c4bc8c31009175ffd
                         }
                     }
                 }
 
-<<<<<<< HEAD
-                // Ensure player starting areas are clear
-                const playerStarts = [
-                    { x: 0, y: 0 },
-                    { x: 14, y: 0 },
-                    { x: 0, y: 14 },
-                    { x: 14, y: 14 },
-                    { x: 7, y: 0 },
-                    { x: 7, y: 14 },
-                    { x: 0, y: 7 },
-                    { x: 14, y: 7 }
-                ];
-
-                playerStarts.forEach(pos => {
-                    map[pos.y][pos.x] = 0;
-                    const neighbors = [
-                        { x: pos.x - 1, y: pos.y },
-                        { x: pos.x + 1, y: pos.y },
-                        { x: pos.x, y: pos.y - 1 },
-                        { x: pos.x, y: pos.y + 1 },
-                        { x: pos.x - 1, y: pos.y - 1 },
-                        { x: pos.x + 1, y: pos.y - 1 },
-                        { x: pos.x - 1, y: pos.y + 1 },
-                        { x: pos.x + 1, y: pos.y + 1 }
-                    ];
-                    neighbors.forEach(n => {
-                        if (n.x >= 0 && n.x < size && n.y >= 0 && n.y < size) {
-                            map[n.y][n.x] = 0;
-=======
                 // Randomly place destructible walls
                 for (let y = 1; y < rows - 1; y++) {
                     for (let x = 1; x < cols - 1; x++) {
@@ -152,7 +109,6 @@ function createRandomMap() {
                     adjacent.forEach(adj => {
                         if (isPositionValid(adj.x, adj.y, map)) {
                             map[adj.y][adj.x] = 0;
->>>>>>> 2a30342feb15935366281b1c4bc8c31009175ffd
                         }
                     });
                 });
@@ -171,20 +127,8 @@ function createRandomMap() {
                 { x: 14, y: 7 }
             ];
 
-<<<<<<< HEAD
-            function isAdjacentToPlayerStart(x, y) {
-                for (let pos of playerStartingPositions) {
-                    const dx = Math.abs(pos.x - x);
-                    const dy = Math.abs(pos.y - y);
-                    if ((dx <= 1 && dy <= 1)) {
-                        return true;
-                    }
-                }
-                return false;
-=======
             function isPlayerStartingPosition(x, y) {
                 return playerStartingPositions.some(pos => pos.x === x && pos.y === y);
->>>>>>> 2a30342feb15935366281b1c4bc8c31009175ffd
             }
 
             function getAdjacentPositions(x, y, map) {
@@ -346,28 +290,11 @@ function createRandomMap() {
                 try {
                     let map = createInitialMap();
 
-<<<<<<< HEAD
-                    for (let y = 0; y < initialMap.length; y++) {
-                        map[y] = [];
-                        for (let x = 0; x < initialMap[y].length; x++) {
-                            if (initialMap[y][x] === 0) {
-                                map[y][x] = 0;
-                            } else {
-                                if (isAdjacentToPlayerStart(x, y)) {
-                                    map[y][x] = 1;
-                                } else {
-                                    map[y][x] = Math.random() < 0.15 ? 2 : 1;
-                                }
-                            }
-                        }
-                    }
-=======
                     // Apply strategic wall placements
                     map = generateStrategicWalls(map);
 
                     // Ensure full connectivity
                     map = ensureFullConnectivity(map);
->>>>>>> 2a30342feb15935366281b1c4bc8c31009175ffd
 
                     parentPort.postMessage({ map });
                 } catch (error) {
@@ -414,7 +341,7 @@ function areAllStartingPositionsConnected(map) {
         ];
 
         neighbors.forEach(({ x: nx, y: ny }) => {
-            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx] && map[ny][nx] !== 2) {
+            if (nx >= 0 && nx < map[0].length && ny >= 0 && ny < map.length && !visited[ny][nx] && map[ny][nx] !== 2) {
                 visited[ny][nx] = true;
                 queue.push({ x: nx, y: ny });
             }
