@@ -67,23 +67,43 @@ function createRandomMap() {
             const { parentPort } = require('worker_threads');
 
             function createInitialMap() {
-                return [
-                    [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0],
-                    [0, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 0],
-                    [1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [0, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 2, 1, 2, 2, 2, 1, 2, 1, 2, 1, 2, 1, 2, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 0],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1],
-                    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
-                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                    [0, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 0],
-                    [0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 2, 1, 0, 0]
-                ];
+                const rows = 15;
+                const cols = 15;
+                const map = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+                // Set borders as indestructible walls
+                for (let y = 0; y < rows; y++) {
+                    map[y][0] = 2;
+                    map[y][cols - 1] = 2;
+                }
+                for (let x = 0; x < cols; x++) {
+                    map[0][x] = 2;
+                    map[rows - 1][x] = 2;
+                }
+
+                // Randomly place indestructible walls inside the map with symmetry
+                for (let y = 1; y < rows - 1; y++) {
+                    for (let x = 1; x < Math.floor(cols / 2); x++) {
+                        if (Math.random() < 0.3) { // 30% chance to place an indestructible wall
+                            map[y][x] = 2;
+                            map[y][cols - 1 - x] = 2; // Symmetric placement
+                        }
+                    }
+                }
+
+                // Randomly place destructible walls
+                for (let y = 1; y < rows - 1; y++) {
+                    for (let x = 1; x < cols - 1; x++) {
+                        if (map[y][x] === 0 && !isPlayerStartingPosition(x, y)) {
+                            if (Math.random() < 0.2) { // 20% chance to place a destructible wall
+                                map[y][x] = 1;
+                                map[y][cols - 1 - x] = 1; // Symmetric placement
+                            }
+                        }
+                    }
+                }
+
+                return map;
             }
 
             const playerStartingPositions = [
@@ -97,43 +117,8 @@ function createRandomMap() {
                 { x: 14, y: 14 }
             ];
 
-            function isAdjacentToPlayerStart(x, y) {
-                for (let pos of playerStartingPositions) {
-                    const dx = Math.abs(pos.x - x);
-                    const dy = Math.abs(pos.y - y);
-                    if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            function generateStrategicWalls(map) {
-                // Symmetric walls
-                for (let y = 0; y < map.length; y++) {
-                    for (let x = 0; x < Math.floor(map[0].length / 2); x++) {
-                        const mirrorX = map[0].length - 1 - x;
-                        if (map[y][x] === 1 || map[y][x] === 2) {
-                            map[y][mirrorX] = map[y][x];
-                        }
-                    }
-                }
-
-                // Central horizontal choke point
-                const centralY = Math.floor(map.length / 2);
-                for (let x = 2; x < map[0].length - 2; x++) {
-                    map[centralY][x] = 2; // Indestructible wall
-                }
-
-                // Vertical walls in specific columns
-                const verticalColumns = [3, 11];
-                verticalColumns.forEach(col => {
-                    for (let y = 2; y < map.length - 2; y++) {
-                        map[y][col] = 2;
-                    }
-                });
-
-                return map;
+            function isPlayerStartingPosition(x, y) {
+                return playerStartingPositions.some(pos => pos.x === x && pos.y === y);
             }
 
             // Flood Fill to ensure all destructible walls are reachable
@@ -209,9 +194,6 @@ function createRandomMap() {
             parentPort.on('message', () => {
                 try {
                     let map = createInitialMap();
-
-                    // Apply strategic wall placements
-                    map = generateStrategicWalls(map);
 
                     // Ensure full connectivity
                     map = ensureFullConnectivity(map);
