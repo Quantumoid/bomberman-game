@@ -12,7 +12,7 @@ const app = express();
 const port = process.env.PORT || 10000;
 
 // Maximum number of active games
-const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 5;
+const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 50;
 
 // Initialize Winston Logger
 const logger = winston.createLogger({
@@ -49,7 +49,7 @@ app.use(generalLimiter);
 // Specific Rate Limiter for /create-game to prevent abuse
 const createGameLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 5, // limit each IP to 5 create-game requests per windowMs
+    max: 30, // limit each IP to 30 create-game requests per windowMs
     message: 'Too many game creation requests from this IP, please try again after a minute.',
 });
 
@@ -294,26 +294,7 @@ function createRandomMap() {
         });
 
         worker.postMessage('start');
-    });
-}
-
-// Tile types
-// 0: Empty space
-// 1: Brick wall (destructible)
-// 2: Indestructible wall
-// 3: Power-up
-
-// List of player starting positions
-const playerStartingPositions = [
-    { x: 0, y: 0 },
-    { x: 14, y: 14 },
-    { x: 0, y: 14 },
-    { x: 14, y: 0 },
-    { x: 7, y: 0 },
-    { x: 7, y: 14 },
-    { x: 0, y: 7 },
-    { x: 14, y: 7 }
-];
+    }
 
 // Create HTTP server and bind to all interfaces
 const server = http.createServer(app);
