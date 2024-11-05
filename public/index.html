@@ -644,6 +644,10 @@
     }
 
     function updatePlayerPosition(pid, x, y, direction = 'down') {
+        if (!players[pid]) {
+            players[pid] = {};
+        }
+
         // Remove existing player sprite and name
         const oldPlayerElement = document.querySelector(`.cell .${pid}`);
         if (oldPlayerElement) oldPlayerElement.remove();
@@ -684,7 +688,6 @@
         cell.appendChild(playerName);
 
         // Update local player state
-        players[pid] = players[pid] || {};
         players[pid].x = x;
         players[pid].y = y;
         players[pid].direction = mappedDirection;
@@ -795,6 +798,11 @@
     }
 
     function updatePlayerList(playersData) {
+        if (!playersData || typeof playersData !== 'object') {
+            console.error("Invalid playersData:", playersData);
+            return;
+        }
+
         const playersArray = Object.entries(playersData).map(([pid, player]) => ({ id: pid, ...player }));
         // Sort players by score descending
         playersArray.sort((a, b) => b.score - a.score);
@@ -879,6 +887,8 @@
 
     function updatePlayerSpeed() {
         const player = players[playerId];
+        if (!player) return;
+
         if (player.speed === 1) {
             movementSpeed = 250;
         } else if (player.speed === 2) {
@@ -1006,7 +1016,9 @@
                 showMessage("A new map has been generated!");
 
             } else if (message.type === 'update') {
-                updatePlayerPosition(message.playerId, message.x, message.y, message.direction);
+                if (message.playerId && typeof message.x === 'number' && typeof message.y === 'number') {
+                    updatePlayerPosition(message.playerId, message.x, message.y, message.direction);
+                }
             } else if (message.type === 'newPlayer') {
                 // Map new player's ID to image names
                 const newPlayerId = message.playerId;
@@ -1022,29 +1034,38 @@
                 updatePlayerList(message.players);
 
             } else if (message.type === 'playerLeft') {
-                removePlayer(message.playerId);
+                if (message.playerId) {
+                    removePlayer(message.playerId);
+                }
                 // Update player list
                 updatePlayerList(message.players);
 
             } else if (message.type === 'bombPlaced') {
-                placeBomb(message.x, message.y);
-
+                if (typeof message.x === 'number' && typeof message.y === 'number') {
+                    placeBomb(message.x, message.y);
+                }
             } else if (message.type === 'bombExploded') {
-                explodeBomb(
-                    message.x,
-                    message.y,
-                    message.destroyedBricks,
-                    message.newPowerUps,
-                    message.explosionPositions
-                );
+                if (typeof message.x === 'number' && typeof message.y === 'number' &&
+                    Array.isArray(message.destroyedBricks) && Array.isArray(message.newPowerUps) &&
+                    Array.isArray(message.explosionPositions)) {
+                    explodeBomb(
+                        message.x,
+                        message.y,
+                        message.destroyedBricks,
+                        message.newPowerUps,
+                        message.explosionPositions
+                    );
+                }
             } else if (message.type === 'playerHit') {
                 const victimId = message.playerId;
                 const attackerId = message.by;
-                const victimNickname = escapeHtml(players[victimId].nickname || `Player ${players[victimId].playerNumber}`);
-                const attackerNickname = attackerId ? escapeHtml(players[attackerId].nickname || `Player ${players[attackerId].playerNumber}`) : 'Unknown';
+                const victimNickname = players[victimId] ? escapeHtml(players[victimId].nickname || `Player ${players[victimId].playerNumber}`) : 'Unknown';
+                const attackerNickname = attackerId && players[attackerId] ? escapeHtml(players[attackerId].nickname || `Player ${players[attackerId].playerNumber}`) : 'Unknown';
                 
                 // Update player position
-                updatePlayerPosition(victimId, message.x, message.y, 'down');
+                if (message.x !== undefined && message.y !== undefined) {
+                    updatePlayerPosition(victimId, message.x, message.y, 'down');
+                }
                 
                 // Display appropriate message
                 if (victimId === playerId) {
@@ -1064,34 +1085,38 @@
                 // Trigger visual effects for the victim
                 triggerPlayerHitEffect(victimId);
             } else if (message.type === 'powerUpCollected') {
-                const idx = message.y * 15 + message.x;
-                const cell = gameElement.children[idx];
-                const powerUpKey = `${message.x},${message.y}`;
-                delete powerUps[powerUpKey]; // Remove from powerUps object
-                map[message.y][message.x] = 0; // Update map array
+                if (typeof message.x === 'number' && typeof message.y === 'number') {
+                    const idx = message.y * 15 + message.x;
+                    const cell = gameElement.children[idx];
+                    const powerUpKey = `${message.x},${message.y}`;
+                    delete powerUps[powerUpKey]; // Remove from powerUps object
+                    map[message.y][message.x] = 0; // Update map array
 
-                // Remove power-up icon from the cell
-                const powerUpElement = cell.querySelector('.power-up-icon');
-                if (powerUpElement) {
-                    powerUpElement.remove();
-                }
+                    // Remove power-up icon from the cell
+                    const powerUpElement = cell.querySelector('.power-up-icon');
+                    if (powerUpElement) {
+                        powerUpElement.remove();
+                    }
 
-                // Play power-up sound
-                const powerupSound = document.getElementById('powerup-sound');
-                if (powerupSound) {
-                    powerupSound.currentTime = 0; // Rewind to start
-                    powerupSound.play();
+                    // Play power-up sound
+                    const powerupSound = document.getElementById('powerup-sound');
+                    if (powerupSound) {
+                        powerupSound.currentTime = 0; // Rewind to start
+                        powerupSound.play();
+                    }
                 }
             } else if (message.type === 'chat') {
-                const chatMsg = document.createElement('div');
-                chatMsg.classList.add('chat-message');
-                chatMsg.textContent = `${message.nickname}: ${message.message}`;
-                chatMessages.appendChild(chatMsg);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                if (message.nickname && message.message) {
+                    const chatMsg = document.createElement('div');
+                    chatMsg.classList.add('chat-message');
+                    chatMsg.textContent = `${message.nickname}: ${message.message}`;
+                    chatMessages.appendChild(chatMsg);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
             } else if (message.type === 'updatePlayerList') {
                 updatePlayerList(message.players);
                 // Update player's speed
-                if (players[playerId]) {
+                if (players[playerId] && message.players[playerId]) {
                     players[playerId].speed = message.players[playerId].speed || 1;
                     updatePlayerSpeed();
                 }
@@ -1099,6 +1124,7 @@
             // Handle other message types as needed
         };
 
+        // Error handling for WebSocket
         ws.onerror = (error) => console.error("WebSocket error:", error);
 
         ws.onclose = () => {
@@ -1111,8 +1137,13 @@
             }
         };
 
-        // Listen for key presses
+        // Event listeners for key presses
         document.addEventListener('keydown', (event) => {
+            // Check if chat input is focused
+            if (document.activeElement === chatInput) {
+                return;
+            }
+
             if (event.key === ' ') {
                 event.preventDefault();
                 // Send placeBomb message
@@ -1152,6 +1183,7 @@
             }
         });
 
+        // Function to trigger player hit effect
         function triggerPlayerHitEffect(victimId) {
             // Select the player's DOM element
             const playerElement = document.querySelector(`.cell .${victimId}`);
