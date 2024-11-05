@@ -5,10 +5,11 @@
     <title>Bomberman Game</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self' ws:;
+        default-src 'self';
         script-src 'self' 'unsafe-inline' 'unsafe-eval';
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
+        connect-src 'self' ws:;
     ">
     <style>
         body { 
@@ -1022,9 +1023,6 @@
                 } else {
                     console.error("Invalid playersData in newMap:", message.players);
                 }
-
-                showMessage("A new map has been generated!"); // Ensure it's only called once
-
             } else if (message.type === 'update') {
                 if (message.playerId && typeof message.x === 'number' && typeof message.y === 'number') {
                     updatePlayerPosition(message.playerId, message.x, message.y, message.direction);
