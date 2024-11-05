@@ -135,6 +135,7 @@ function createRandomMap() {
                         { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
                         { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
                     ];
+
                     directions.forEach(dir => {
                         const nx = x + dir.dx;
                         const ny = y + dir.dy;
@@ -264,6 +265,12 @@ wss.on('connection', (ws) => {
                 playerId = sanitizePlayerId(data.playerId);
                 gamePassword = sanitizePassword(data.password);
                 const nickname = sanitizeNickname(data.nickname || 'Player');
+
+                if (!gamePassword) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid game password.' }));
+                    ws.close();
+                    return;
+                }
 
                 const game = games[gamePassword];
 
@@ -436,6 +443,25 @@ wss.on('connection', (ws) => {
                 }, 3000);
             }
 
+            if (data.type === 'chat') {
+                const game = games[gamePassword];
+                if (!game) return;
+                const player = game.players[playerId];
+                if (!player) return;
+
+                const chatMessage = sanitizeChatMessage(data.message);
+                const nickname = player.nickname;
+
+                if (chatMessage.length === 0) return;
+
+                // Broadcast the chat message to all clients in the game
+                broadcastToGame(gamePassword, {
+                    type: 'chat',
+                    nickname: nickname,
+                    message: chatMessage
+                });
+            }
+
         } catch (error) {
             log('error', `WebSocket Error handling message: ${error.message}`);
             ws.send(JSON.stringify({ type: 'error', message: 'Internal server error.' }));
@@ -505,6 +531,11 @@ function sanitizePassword(password) {
 // Function to sanitize nicknames
 function sanitizeNickname(nickname) {
     return String(nickname).substring(0, 20).replace(/[^a-zA-Z0-9 _\-]/g, '');
+}
+
+// Function to sanitize chat messages
+function sanitizeChatMessage(message) {
+    return String(message).substring(0, 200).replace(/[\n\r]/g, '').trim();
 }
 
 // Function to apply power-up to a player
