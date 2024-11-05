@@ -1085,7 +1085,7 @@
             } else if (message.type === 'chat') {
                 const chatMsg = document.createElement('div');
                 chatMsg.classList.add('chat-message');
-                chatMsg.innerHTML = `<strong>${escapeHtml(message.nickname)}:</strong> ${escapeHtml(message.message)}`;
+                chatMsg.textContent = `${message.nickname}: ${message.message}`;
                 chatMessages.appendChild(chatMsg);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             } else if (message.type === 'updatePlayerList') {
@@ -1189,34 +1189,36 @@
             }, 1000);
         }
 
-        window.onload = () => {
-            const nicknameOverlay = document.getElementById('nickname-overlay');
-            const nicknameInput = document.getElementById('nickname-input');
-            const nicknameSubmit = document.getElementById('nickname-submit');
+    } // Close joinGame function
 
-            nicknameSubmit.addEventListener('click', () => {
-                nickname = nicknameInput.value.trim();
-                if (nickname.length === 0) {
-                    alert('Please enter a nickname.');
-                    return;
-                }
-                // Hide the overlay
-                nicknameOverlay.style.display = 'none';
-                // Now join the game
-                joinGame();
-            });
+    window.onload = () => {
+        const nicknameOverlay = document.getElementById('nickname-overlay');
+        const nicknameInput = document.getElementById('nickname-input');
+        const nicknameSubmit = document.getElementById('nickname-submit');
 
-            // Allow pressing Enter to submit nickname
-            nicknameInput.addEventListener('keypress', (event) => {
-                if (event.key === 'Enter') {
-                    nicknameSubmit.click();
-                }
-            });
+        nicknameSubmit.addEventListener('click', () => {
+            nickname = nicknameInput.value.trim();
+            if (nickname.length === 0) {
+                alert('Please enter a nickname.');
+                return;
+            }
+            // Hide the overlay
+            nicknameOverlay.style.display = 'none';
+            // Focus on the game area
+            joinGame();
+        });
 
-            // Automatically focus on the nickname input when the overlay appears
-            nicknameOverlay.style.display = 'flex';
-            nicknameInput.focus();
-        };
+        // Allow pressing Enter to submit nickname
+        nicknameInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                nicknameSubmit.click();
+            }
+        });
+
+        // Automatically focus on the nickname input when the overlay appears
+        nicknameOverlay.style.display = 'flex';
+        nicknameInput.focus();
+    };
 </script>
 </body>
 </html>
