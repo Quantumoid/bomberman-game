@@ -24,7 +24,71 @@
             height: 100%;
             padding: 20px;
             box-sizing: border-box;
-            position: relative;
+        }
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            width: 250px;
+            max-width: 100%;
+            margin-right: 20px;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            color: #00ffff;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-container h2 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: #00ffff;
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 10px #00ffff;
+        }
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        .chat-message {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        #chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+        #chat-input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0,255,255,0.5);
+        }
+        #chat-send {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            background-color: #00ffff;
+            color: #000;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 0 5px rgba(0,255,255,0.5);
+        }
+        #chat-send:hover {
+            background-color: #00cccc;
+            transform: scale(1.05);
         }
         #game-area { 
             display: flex; 
@@ -172,7 +236,6 @@
 
         /* Updated styles for the player list */
         #player-list {
-            margin-left: 20px;
             background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
             border: 2px solid #00ffff;
             padding: 20px;
@@ -183,7 +246,9 @@
             overflow-y: auto;
             box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
             color: #00ffff;
-            position: relative;
+            margin-left: 20px;
+            display: flex;
+            flex-direction: column;
         }
         #player-list h2 {
             margin-bottom: 20px;
@@ -196,6 +261,7 @@
             list-style-type: none;
             padding: 0;
             margin: 0;
+            flex: 1;
         }
         #player-list li {
             margin-bottom: 15px;
@@ -214,26 +280,27 @@
         #player-list li img.trophy {
             width: 40px;
             height: 40px;
-            margin-left: 10px;
+            margin-left: 5px;
         }
 
         /* Styles for the message container and messages */
         #message-container {
-            margin-top: 20px;
+            margin-top: 10px;
             width: 100%;
             text-align: left;
             position: relative;
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
+            flex: 0 0 auto;
         }
         .game-message {
             display: block;
             background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 10px;
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 8px;
             animation: fadeout 5s forwards;
-            font-size: 16px;
+            font-size: 14px;
             color: #00ffff;
             text-shadow: 0 0 5px #00ffff;
             backdrop-filter: blur(5px);
@@ -249,7 +316,7 @@
             background: rgba(255, 0, 0, 0.8); /* Semi-transparent red background */
             color: #fff;
             font-weight: bold;
-            animation: shake 0.5s;
+            animation: shake 0.5s, fadeout 5s forwards;
             text-shadow: 0 0 10px #ff0000;
         }
 
@@ -414,6 +481,12 @@
                 margin-top: 20px;
                 height: 400px;
             }
+            #chat-container {
+                width: 100%;
+                margin-right: 0;
+                margin-bottom: 20px;
+                height: 300px;
+            }
             #status {
                 font-size: 16px;
             }
@@ -433,38 +506,6 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-
-        /* Laser Beams */
-        .laser-beam {
-            position: absolute;
-            width: 4px;
-            background: linear-gradient(45deg, #00ffff, #ffffff);
-            box-shadow: 0 0 10px #00ffff;
-            z-index: 999;
-        }
-        .laser-beam1 {
-            top: 0;
-            left: 50%;
-            height: 100px;
-            transform: rotate(45deg);
-        }
-        .laser-beam2 {
-            top: 0;
-            left: 50%;
-            height: 100px;
-            transform: rotate(-45deg);
-        }
-
-        /* Connecting Effect Animation */
-        @keyframes connect {
-            0% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-
-        .laser-beam {
-            animation: connect 2s infinite;
-        }
     </style>
     <!-- Google Fonts for Orbitron -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -472,6 +513,14 @@
 <body>
 
 <div id="game-container">
+    <div id="chat-container">
+        <h2>Chat</h2>
+        <div id="chat-messages"></div>
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="Type your message...">
+            <button id="chat-send">SEND</button>
+        </div>
+    </div>
     <div id="game-area">
         <div id="game"></div>
         <div id="status" class="glow-text">Game started! Use arrow keys to move. Press space to drop a bomb.</div>
@@ -481,9 +530,6 @@
         <ul id="players"></ul>
         <h2>Messages</h2>
         <div id="message-container"></div>
-        <!-- Laser Beams -->
-        <div class="laser-beam laser-beam1"></div>
-        <div class="laser-beam laser-beam2"></div>
     </div>
 </div>
 
@@ -509,6 +555,9 @@
     const gameElement = document.getElementById('game');
     const statusElement = document.getElementById('status');
     const playerListElement = document.getElementById('players');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const chatSend = document.getElementById('chat-send');
 
     let map = []; // Will be initialized from server
     let powerUps = {}; // Positions of power-ups
@@ -1029,6 +1078,12 @@
                     powerupSound.currentTime = 0; // Rewind to start
                     powerupSound.play();
                 }
+            } else if (message.type === 'chat') {
+                const chatMsg = document.createElement('div');
+                chatMsg.classList.add('chat-message');
+                chatMsg.innerHTML = `<strong>${escapeHtml(message.nickname)}:</strong> ${escapeHtml(message.message)}`;
+                chatMessages.appendChild(chatMsg);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             } else if (message.type === 'updatePlayerList') {
                 updatePlayerList(message.players);
                 // Update player's speed
@@ -1079,73 +1134,85 @@
             }
         });
 
-    }
-
-    function triggerPlayerHitEffect(victimId) {
-        // Select the player's DOM element
-        const playerElement = document.querySelector(`.cell .${victimId}`);
-        if (!playerElement) return;
-    
-        // Add the 'hit' class to trigger the flash effect
-        playerElement.classList.add('hit');
-
-        // Add a glow effect
-        playerElement.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.7)';
-    
-        // Listen for the end of the animation to remove the 'hit' class and glow
-        playerElement.addEventListener('animationend', () => {
-            playerElement.classList.remove('hit');
-            playerElement.style.boxShadow = '';
-        }, { once: true });
-    
-        // Create an explosion element
-        const explosion = document.createElement('div');
-        explosion.classList.add('explosion-effect');
-
-        // Append the explosion to the player's cell
-        playerElement.parentElement.appendChild(explosion);
-
-        // Play the hit sound
-        const hitSound = document.getElementById('hit-sound');
-        if (hitSound) {
-            hitSound.currentTime = 0;
-            hitSound.play();
-        }
-    
-        // Remove the explosion element after the animation completes (e.g., 1s)
-        setTimeout(() => {
-            explosion.remove();
-        }, 1000);
-    }
-
-    window.onload = () => {
-        const nicknameOverlay = document.getElementById('nickname-overlay');
-        const nicknameInput = document.getElementById('nickname-input');
-        const nicknameSubmit = document.getElementById('nickname-submit');
-
-        nicknameSubmit.addEventListener('click', () => {
-            nickname = nicknameInput.value.trim();
-            if (nickname.length === 0) {
-                alert('Please enter a nickname.');
-                return;
-            }
-            // Hide the overlay
-            nicknameOverlay.style.display = 'none';
-            // Now join the game
-            joinGame();
+        // Chat functionality
+        chatSend.addEventListener('click', () => {
+            const message = chatInput.value.trim();
+            if (message.length === 0) return;
+            ws.send(JSON.stringify({ type: 'chat', playerId: playerId, password: password, message: message }));
+            chatInput.value = '';
         });
 
-        // Allow pressing Enter to submit nickname
-        nicknameInput.addEventListener('keypress', (event) => {
+        chatInput.addEventListener('keypress', (event) => {
             if (event.key === 'Enter') {
-                nicknameSubmit.click();
+                chatSend.click();
             }
         });
 
-        // Automatically focus on the nickname input when the overlay appears
-        nicknameOverlay.style.display = 'flex';
-        nicknameInput.focus();
-    };
-</script>
+        function triggerPlayerHitEffect(victimId) {
+            // Select the player's DOM element
+            const playerElement = document.querySelector(`.cell .${victimId}`);
+            if (!playerElement) return;
+        
+            // Add the 'hit' class to trigger the flash effect
+            playerElement.classList.add('hit');
+
+            // Add a glow effect
+            playerElement.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.7)';
+        
+            // Listen for the end of the animation to remove the 'hit' class and glow
+            playerElement.addEventListener('animationend', () => {
+                playerElement.classList.remove('hit');
+                playerElement.style.boxShadow = '';
+            }, { once: true });
+        
+            // Create an explosion element
+            const explosion = document.createElement('div');
+            explosion.classList.add('explosion-effect');
+
+            // Append the explosion to the player's cell
+            playerElement.parentElement.appendChild(explosion);
+
+            // Play the hit sound
+            const hitSound = document.getElementById('hit-sound');
+            if (hitSound) {
+                hitSound.currentTime = 0;
+                hitSound.play();
+            }
+        
+            // Remove the explosion element after the animation completes (e.g., 1s)
+            setTimeout(() => {
+                explosion.remove();
+            }, 1000);
+        }
+
+        window.onload = () => {
+            const nicknameOverlay = document.getElementById('nickname-overlay');
+            const nicknameInput = document.getElementById('nickname-input');
+            const nicknameSubmit = document.getElementById('nickname-submit');
+
+            nicknameSubmit.addEventListener('click', () => {
+                nickname = nicknameInput.value.trim();
+                if (nickname.length === 0) {
+                    alert('Please enter a nickname.');
+                    return;
+                }
+                // Hide the overlay
+                nicknameOverlay.style.display = 'none';
+                // Now join the game
+                joinGame();
+            });
+
+            // Allow pressing Enter to submit nickname
+            nicknameInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    nicknameSubmit.click();
+                }
+            });
+
+            // Automatically focus on the nickname input when the overlay appears
+            nicknameOverlay.style.display = 'flex';
+            nicknameInput.focus();
+        };
+    </script>
 </body>
 </html>
