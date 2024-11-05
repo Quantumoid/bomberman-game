@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Bomberman Game</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' ws:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' ws:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+    ">
     <style>
         body { 
             display: flex; 
@@ -1212,6 +1217,6 @@
             nicknameOverlay.style.display = 'flex';
             nicknameInput.focus();
         };
-    </script>
+</script>
 </body>
 </html>
