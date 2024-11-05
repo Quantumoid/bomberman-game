@@ -100,7 +100,7 @@
         /* Player name above head */
         .player-name {
             position: absolute;
-            top: -20px;
+            top: -18px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.6);
@@ -111,6 +111,7 @@
             white-space: nowrap;
             pointer-events: none;
             text-shadow: 0 0 5px #00ffff;
+            z-index: 3;
         }
 
         /* Flash effect when player is hit */
@@ -442,16 +443,27 @@
             z-index: 999;
         }
         .laser-beam1 {
-            top: 50%;
-            left: 60%;
-            height: 200px;
+            top: 0;
+            left: 50%;
+            height: 100px;
             transform: rotate(45deg);
         }
         .laser-beam2 {
-            top: 50%;
-            left: 60%;
-            height: 200px;
+            top: 0;
+            left: 50%;
+            height: 100px;
             transform: rotate(-45deg);
+        }
+
+        /* Connecting Effect Animation */
+        @keyframes connect {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .laser-beam {
+            animation: connect 2s infinite;
         }
     </style>
     <!-- Google Fonts for Orbitron -->
@@ -1119,7 +1131,7 @@
             }
             // Hide the overlay
             nicknameOverlay.style.display = 'none';
-            // Focus on the game area
+            // Now join the game
             joinGame();
         });
 
