@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Bomberman Game</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self' ws:;
         script-src 'self' 'unsafe-inline' 'unsafe-eval';
@@ -988,32 +989,41 @@
                 // Handle new map
                 map = message.map;
                 powerUps = {};
-                message.powerUps.forEach(powerUp => {
-                    const powerUpKey = `${powerUp.x},${powerUp.y}`;
-                    powerUps[powerUpKey] = powerUp.type;
-                });
+                if (message.powerUps && Array.isArray(message.powerUps)) {
+                    message.powerUps.forEach(powerUp => {
+                        const powerUpKey = `${powerUp.x},${powerUp.y}`;
+                        powerUps[powerUpKey] = powerUp.type;
+                    });
+                }
                 initializeGameGrid();
 
                 // Update players' positions and reset local player properties
-                for (const pid in message.players) {
-                    const player = message.players[pid];
-                    const imageName = player.playerNumber ? `player${player.playerNumber}` : 'default_player';
-                    playerImages[pid] = imageName;
-                    players[pid] = players[pid] || {};
-                    players[pid].x = player.x;
-                    players[pid].y = player.y;
-                    players[pid].speed = player.speed || 1;
-                    players[pid].nickname = player.nickname || `Player ${player.playerNumber || pid}`;
-                    updatePlayerPosition(pid, player.x, player.y, 'down');
+                if (message.players && typeof message.players === 'object') {
+                    for (const pid in message.players) {
+                        const player = message.players[pid];
+                        const imageName = player.playerNumber ? `player${player.playerNumber}` : 'default_player';
+                        playerImages[pid] = imageName;
+                        players[pid] = players[pid] || {};
+                        players[pid].x = player.x;
+                        players[pid].y = player.y;
+                        players[pid].speed = player.speed || 1;
+                        players[pid].nickname = player.nickname || `Player ${player.playerNumber || pid}`;
+                        updatePlayerPosition(pid, player.x, player.y, 'down');
+                    }
+
+                    // Update movement speed
+                    updatePlayerSpeed();
+
+                    // Update player list
+                    updatePlayerList(message.players);
+
+                    // Show the new map message
+                    showMessage("A new map has been generated!");
+                } else {
+                    console.error("Invalid playersData in newMap:", message.players);
                 }
 
-                // Update movement speed
-                updatePlayerSpeed();
-
-                // Update player list
-                updatePlayerList(message.players);
-
-                showMessage("A new map has been generated!");
+                showMessage("A new map has been generated!"); // Ensure it's only called once
 
             } else if (message.type === 'update') {
                 if (message.playerId && typeof message.x === 'number' && typeof message.y === 'number') {
