@@ -185,11 +185,16 @@
             color: #ffffff;
             text-shadow: 0 0 5px #00ffff;
         }
-        #player-list li img {
+        #player-list li img.player-icon {
             width: 30px; /* Adjust size of player icon */
             height: 30px;
             margin-right: 10px;
             filter: drop-shadow(0 0 5px #00ffff);
+        }
+        #player-list li img.trophy {
+            width: 60px;
+            height: 60px;
+            margin-left: 10px;
         }
 
         /* Styles for the message container and messages */
@@ -669,24 +674,48 @@
     }
 
     function updatePlayerList(playersData) {
+        const playersArray = Object.values(playersData);
+        // Sort players by score descending
+        playersArray.sort((a, b) => b.score - a.score);
+
         playerListElement.innerHTML = ''; // Clear existing list
-        for (const pid in playersData) {
-            const player = playersData[pid];
+        playersArray.forEach((player, index) => {
             const listItem = document.createElement('li');
 
             // Create player icon
             const playerIcon = document.createElement('img');
-            const imageName = `player${player.playerNumber}`;
-            playerIcon.src = `/${imageName}.png`;
+            playerIcon.src = `/${playerImages[playerId] || 'default_player'}.png`;
             playerIcon.alt = `Player ${player.playerNumber}`;
+            playerIcon.classList.add('player-icon');
             listItem.appendChild(playerIcon);
 
             const safeNickname = escapeHtml(player.nickname || `Player ${player.playerNumber}`);
             const textNode = document.createTextNode(`${safeNickname}: ${player.score} points`);
             listItem.appendChild(textNode);
 
+            // Add trophy based on rank
+            if (index === 0) {
+                const trophy = document.createElement('img');
+                trophy.src = '/tropheegold.png';
+                trophy.alt = 'Gold Trophy';
+                trophy.classList.add('trophy');
+                listItem.appendChild(trophy);
+            } else if (index === 1) {
+                const trophy = document.createElement('img');
+                trophy.src = '/tropheesilver.png';
+                trophy.alt = 'Silver Trophy';
+                trophy.classList.add('trophy');
+                listItem.appendChild(trophy);
+            } else if (index === 2) {
+                const trophy = document.createElement('img');
+                trophy.src = '/tropheebronze.png';
+                trophy.alt = 'Bronze Trophy';
+                trophy.classList.add('trophy');
+                listItem.appendChild(trophy);
+            }
+
             playerListElement.appendChild(listItem);
-        }
+        });
     }
 
     function startMovement() {
