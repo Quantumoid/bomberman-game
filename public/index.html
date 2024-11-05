@@ -14,6 +14,7 @@
             background: radial-gradient(circle at top left, #0f2027, #203a43, #2c5364); 
             font-family: 'Orbitron', sans-serif;
             overflow: hidden;
+            position: relative;
         }
         #game-container { 
             display: flex; 
@@ -23,6 +24,7 @@
             height: 100%;
             padding: 20px;
             box-sizing: border-box;
+            position: relative;
         }
         #game-area { 
             display: flex; 
@@ -95,6 +97,22 @@
             filter: drop-shadow(0 0 10px #00ffff);
         }
 
+        /* Player name above head */
+        .player-name {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            color: #00ffff;
+            padding: 2px 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+            text-shadow: 0 0 5px #00ffff;
+        }
+
         /* Flash effect when player is hit */
         .player.hit {
             animation: flash-red 0.5s;
@@ -164,6 +182,7 @@
             overflow-y: auto;
             box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
             color: #00ffff;
+            position: relative;
         }
         #player-list h2 {
             margin-bottom: 20px;
@@ -194,7 +213,7 @@
         #player-list li img.trophy {
             width: 40px;
             height: 40px;
-            margin-left: 5px;
+            margin-left: 10px;
         }
 
         /* Styles for the message container and messages */
@@ -413,6 +432,27 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
+
+        /* Laser Beams */
+        .laser-beam {
+            position: absolute;
+            width: 4px;
+            background: linear-gradient(45deg, #00ffff, #ffffff);
+            box-shadow: 0 0 10px #00ffff;
+            z-index: 999;
+        }
+        .laser-beam1 {
+            top: 50%;
+            left: 60%;
+            height: 200px;
+            transform: rotate(45deg);
+        }
+        .laser-beam2 {
+            top: 50%;
+            left: 60%;
+            height: 200px;
+            transform: rotate(-45deg);
+        }
     </style>
     <!-- Google Fonts for Orbitron -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -429,6 +469,9 @@
         <ul id="players"></ul>
         <h2>Messages</h2>
         <div id="message-container"></div>
+        <!-- Laser Beams -->
+        <div class="laser-beam laser-beam1"></div>
+        <div class="laser-beam laser-beam2"></div>
     </div>
 </div>
 
@@ -536,9 +579,12 @@
     }
 
     function updatePlayerPosition(pid, x, y, direction = 'down') {
-        // Remove existing player sprite
+        // Remove existing player sprite and name
         const oldPlayerElement = document.querySelector(`.cell .${pid}`);
         if (oldPlayerElement) oldPlayerElement.remove();
+
+        const oldPlayerName = document.querySelector(`.cell .${pid}-name`);
+        if (oldPlayerName) oldPlayerName.remove();
 
         // Calculate the index in the grid
         const index = y * 15 + x;
@@ -566,6 +612,12 @@
         playerElement.classList.add('player', pid, 'glow-text');
         cell.appendChild(playerElement);
 
+        // Add player name
+        const playerName = document.createElement('div');
+        playerName.classList.add('player-name', `${pid}-name`);
+        playerName.textContent = players[pid].nickname || `Player ${players[pid].playerNumber}`;
+        cell.appendChild(playerName);
+
         // Update local player state
         players[pid] = players[pid] || {};
         players[pid].x = x;
@@ -576,6 +628,10 @@
     function removePlayer(pid) {
         const playerElement = document.querySelector(`.cell .${pid}`);
         if (playerElement) playerElement.remove();
+
+        const playerName = document.querySelector(`.cell .${pid}-name`);
+        if (playerName) playerName.remove();
+
         delete players[pid];
     }
 
@@ -1063,7 +1119,7 @@
             }
             // Hide the overlay
             nicknameOverlay.style.display = 'none';
-            // Now join the game
+            // Focus on the game area
             joinGame();
         });
 
@@ -1073,6 +1129,10 @@
                 nicknameSubmit.click();
             }
         });
+
+        // Automatically focus on the nickname input when the overlay appears
+        nicknameOverlay.style.display = 'flex';
+        nicknameInput.focus();
     };
 </script>
 </body>
