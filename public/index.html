@@ -11,6 +11,14 @@
         font-src 'self' https://fonts.gstatic.com;
         connect-src 'self' ws:;
     ">
+    <link rel="preload" href="/power_up_max_bombs.png" as="image">
+    <link rel="preload" href="/power_up_extra_blast_radius.png" as="image">
+    <link rel="preload" href="/speed_powerup.png" as="image">
+    <link rel="preload" href="/bomb_sprite.png" as="image">
+    <link rel="preload" href="/explosion_sprite.png" as="image">
+    <link rel="preload" href="/tropheegold.png" as="image">
+    <link rel="preload" href="/tropheesilver.png" as="image">
+    <link rel="preload" href="/tropheebronze.png" as="image">
     <style>
         body { 
             display: flex; 
@@ -540,9 +548,9 @@
 </div>
 
 <!-- Audio elements for sound effects -->
-<audio id="powerup-sound" src="/powerup_sound.mp3"></audio>
-<audio id="bomb-explosion-sound" src="/bomb_explosion.mp3"></audio>
-<audio id="hit-sound" src="/hit_sound.wav"></audio>
+<audio id="powerup-sound" src="/powerup_sound.mp3" preload="auto"></audio>
+<audio id="bomb-explosion-sound" src="/bomb_explosion.mp3" preload="auto"></audio>
+<audio id="hit-sound" src="/hit_sound.wav" preload="auto"></audio>
 
 <!-- Nickname Overlay -->
 <div id="nickname-overlay">
@@ -554,6 +562,18 @@
 </div>
 
 <script>
+    // Preload images
+    const imageSources = [
+        '/player1_up.png', '/player1_down.png', '/player1_left.png', '/player1_right.png',
+        '/player2_up.png', '/player2_down.png', '/player2_left.png', '/player2_right.png',
+        '/default_player_up.png', '/default_player_down.png', '/default_player_left.png', '/default_player_right.png'
+    ];
+
+    imageSources.forEach(src => {
+        const img = new Image();
+        img.src = src;
+    });
+
     let ws;
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
