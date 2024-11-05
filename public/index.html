@@ -535,9 +535,9 @@
         return (tile === 0 || tile === 3) && !hasBomb;
     }
 
-    function updatePlayerPosition(playerId, x, y, direction = 'down') {
+    function updatePlayerPosition(pid, x, y, direction = 'down') {
         // Remove existing player sprite
-        const oldPlayerElement = document.querySelector(`.cell .${playerId}`);
+        const oldPlayerElement = document.querySelector(`.cell .${pid}`);
         if (oldPlayerElement) oldPlayerElement.remove();
 
         // Calculate the index in the grid
@@ -561,22 +561,22 @@
 
         const playerElement = document.createElement('img');
         // Use the mapped image name
-        const imageName = playerImages[playerId] || 'default_player';
+        const imageName = playerImages[pid] || 'default_player';
         playerElement.src = `/${imageName}_${mappedDirection}.png`;
-        playerElement.classList.add('player', playerId, 'glow-text');
+        playerElement.classList.add('player', pid, 'glow-text');
         cell.appendChild(playerElement);
 
         // Update local player state
-        players[playerId] = players[playerId] || {};
-        players[playerId].x = x;
-        players[playerId].y = y;
-        players[playerId].direction = mappedDirection;
+        players[pid] = players[pid] || {};
+        players[pid].x = x;
+        players[pid].y = y;
+        players[pid].direction = mappedDirection;
     }
 
-    function removePlayer(playerId) {
-        const playerElement = document.querySelector(`.cell .${playerId}`);
+    function removePlayer(pid) {
+        const playerElement = document.querySelector(`.cell .${pid}`);
         if (playerElement) playerElement.remove();
-        delete players[playerId];
+        delete players[pid];
     }
 
     function placeBomb(x, y) {
@@ -674,7 +674,7 @@
     }
 
     function updatePlayerList(playersData) {
-        const playersArray = Object.values(playersData);
+        const playersArray = Object.entries(playersData).map(([pid, player]) => ({ id: pid, ...player }));
         // Sort players by score descending
         playersArray.sort((a, b) => b.score - a.score);
 
@@ -684,7 +684,7 @@
 
             // Create player icon
             const playerIcon = document.createElement('img');
-            playerIcon.src = `/${playerImages[playerId] || 'default_player'}.png`;
+            playerIcon.src = `/${playerImages[player.id] || 'default_player'}.png`;
             playerIcon.alt = `Player ${player.playerNumber}`;
             playerIcon.classList.add('player-icon');
             listItem.appendChild(playerIcon);
