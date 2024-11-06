@@ -68,6 +68,10 @@
             color: #00ffff;
             text-shadow: 0 0 5px #00ffff;
         }
+        .chat-message .nickname {
+            color: #ff69b4; /* Pink color for nickname */
+            font-weight: bold;
+        }
         #chat-input-container {
             display: flex;
             gap: 10px;
@@ -1263,7 +1267,14 @@
                 if (message.nickname && message.message) {
                     const chatMsg = document.createElement('div');
                     chatMsg.classList.add('chat-message');
-                    chatMsg.textContent = `${message.nickname}: ${message.message}`;
+
+                    const nicknameSpan = document.createElement('span');
+                    nicknameSpan.classList.add('nickname');
+                    nicknameSpan.textContent = `${message.nickname}: `;
+
+                    chatMsg.appendChild(nicknameSpan);
+                    chatMsg.appendChild(document.createTextNode(message.message));
+
                     chatMessages.appendChild(chatMsg);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
