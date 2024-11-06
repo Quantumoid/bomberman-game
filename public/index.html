@@ -427,6 +427,59 @@
             transform: scale(1.05);
         }
 
+        /* Styles for the connection error overlay */
+        #error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 1001; /* Above nickname-overlay */
+        }
+
+        #error-message {
+            background: linear-gradient(135deg, #ff4e50, #f9d423);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(255,0,0,0.5);
+            animation: zoomIn 0.5s ease-in-out forwards;
+        }
+
+        #error-message h2 {
+            margin-bottom: 20px;
+            color: #ffffff;
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 10px #ff0000;
+        }
+
+        #error-message p {
+            color: #ffffff;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        #error-message button {
+            padding: 12px 25px;
+            border: none;
+            background-color: #ff4e50;
+            color: #fff;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 0 10px rgba(255,0,0,0.5);
+        }
+
+        #error-message button:hover {
+            background-color: #ff6347;
+            transform: scale(1.05);
+        }
+
         /* Responsive Design */
         @media (max-width: 1200px) {
             #game {
@@ -561,6 +614,15 @@
         <h2 class="glow-text">Enter Your Nickname</h2>
         <input type="text" id="nickname-input" maxlength="20" placeholder="Nickname">
         <button id="nickname-submit" class="glow-text">Join Game</button>
+    </div>
+</div>
+
+<!-- Error Overlay -->
+<div id="error-overlay">
+    <div id="error-message">
+        <h2 class="glow-text">Error</h2>
+        <p id="error-text"></p>
+        <button id="error-close">Close</button>
     </div>
 </div>
 
@@ -1287,6 +1349,17 @@
                         updatePlayerSpeed();
                     }
                 }
+            } else if (message.type === 'error') {
+                const errorOverlay = document.getElementById('error-overlay');
+                const errorText = document.getElementById('error-text');
+                const errorClose = document.getElementById('error-close');
+
+                errorText.textContent = message.message || 'An unknown error occurred.';
+                errorOverlay.style.display = 'flex';
+
+                errorClose.addEventListener('click', () => {
+                    errorOverlay.style.display = 'none';
+                });
             }
             // Handle other message types as needed
         };
