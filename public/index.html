@@ -696,6 +696,9 @@
         const playerName = document.createElement('div');
         playerName.classList.add('player-name', `${pid}-name`);
         playerName.textContent = players[pid].nickname || `Player ${players[pid].playerNumber || pid}`;
+        if (pid === firstPlaceId) {
+            playerName.classList.add('first-place');
+        }
         cell.appendChild(playerName);
 
         // Update local player state
@@ -982,38 +985,58 @@
                 }
 
                 // Initialize map and power-ups
-                map = message.map;
+                if (message.map && Array.isArray(message.map)) {
+                    map = message.map;
+                } else {
+                    console.error("Invalid map data in start message:", message.map);
+                    return;
+                }
+
                 powerUps = {};
-                message.powerUps.forEach(powerUp => {
-                    const powerUpKey = `${powerUp.x},${powerUp.y}`;
-                    powerUps[powerUpKey] = powerUp.type;
-                });
+                if (message.powerUps && Array.isArray(message.powerUps)) {
+                    message.powerUps.forEach(powerUp => {
+                        const powerUpKey = `${powerUp.x},${powerUp.y}`;
+                        powerUps[powerUpKey] = powerUp.type;
+                    });
+                }
                 initializeGameGrid();
 
                 // Update positions of all players
-                for (const pid in message.players) {
-                    const player = message.players[pid];
-                    // Map other players' IDs to image names
-                    const imageName = player.playerNumber ? `player${player.playerNumber}` : 'default_player';
-                    playerImages[pid] = imageName;
-                    updatePlayerPosition(pid, player.x, player.y, 'down');
-                    players[pid] = players[pid] || {};
-                    players[pid].speed = player.speed || 1;
-                    players[pid].nickname = player.nickname || `Player ${player.playerNumber || pid}`;
+                if (message.players && typeof message.players === 'object') {
+                    for (const pid in message.players) {
+                        const player = message.players[pid];
+                        // Map other players' IDs to image names
+                        const imageName = player.playerNumber ? `player${player.playerNumber}` : 'default_player';
+                        playerImages[pid] = imageName;
+                        players[pid] = players[pid] || {};
+                        players[pid].x = player.x;
+                        players[pid].y = player.y;
+                        players[pid].speed = player.speed || 1;
+                        players[pid].nickname = player.nickname || `Player ${player.playerNumber || pid}`;
+                        updatePlayerPosition(pid, player.x, player.y, 'down');
+                    }
+
+                    // Update player list
+                    updatePlayerList(message.players);
+
+                    // Update movement speed
+                    updatePlayerSpeed();
+                } else {
+                    console.error("Invalid playersData in start message:", message.players);
                 }
-
-                // Update player list
-                updatePlayerList(message.players);
-
-                // Update movement speed
-                updatePlayerSpeed();
 
             } else if (message.type === 'newMap') {
                 // Clear existing bombs
                 clearAllBombs();
 
                 // Handle new map
-                map = message.map;
+                if (message.map && Array.isArray(message.map)) {
+                    map = message.map;
+                } else {
+                    console.error("Invalid map data in newMap:", message.map);
+                    return;
+                }
+
                 powerUps = {};
                 if (message.powerUps && Array.isArray(message.powerUps)) {
                     message.powerUps.forEach(powerUp => {
@@ -1037,11 +1060,11 @@
                         updatePlayerPosition(pid, player.x, player.y, 'down');
                     }
 
-                    // Update movement speed
-                    updatePlayerSpeed();
-
                     // Update player list
                     updatePlayerList(message.players);
+
+                    // Update movement speed
+                    updatePlayerSpeed();
 
                     // Show the new map message
                     showMessage("A new map has been generated!");
@@ -1053,26 +1076,32 @@
                     updatePlayerPosition(message.playerId, message.x, message.y, message.direction);
                 }
             } else if (message.type === 'newPlayer') {
-                // Map new player's ID to image names
-                const newPlayerId = message.playerId;
-                const imageName = message.playerNumber ? `player${message.playerNumber}` : 'default_player';
-                playerImages[newPlayerId] = imageName;
-                updatePlayerPosition(newPlayerId, message.x, message.y, 'down');
+                if (message.players && typeof message.players === 'object') {
+                    // Map new player's ID to image names
+                    const newPlayerId = message.playerId;
+                    const imageName = message.playerNumber ? `player${message.playerNumber}` : 'default_player';
+                    playerImages[newPlayerId] = imageName;
+                    players[newPlayerId] = players[newPlayerId] || {};
+                    players[newPlayerId].x = message.x;
+                    players[newPlayerId].y = message.y;
+                    players[newPlayerId].speed = message.speed || 1;
+                    players[newPlayerId].nickname = message.nickname || `Player ${message.playerNumber || newPlayerId}`;
+                    updatePlayerPosition(newPlayerId, message.x, message.y, 'down');
 
-                // Store nickname
-                players[newPlayerId] = players[newPlayerId] || {};
-                players[newPlayerId].nickname = message.nickname || `Player ${message.playerNumber || newPlayerId}`;
-
-                // Update player list
-                updatePlayerList(message.players);
-
+                    // Update player list
+                    updatePlayerList(message.players);
+                } else {
+                    console.error("Invalid playersData in newPlayer:", message.players);
+                }
             } else if (message.type === 'playerLeft') {
                 if (message.playerId) {
                     removePlayer(message.playerId);
                 }
-                // Update player list
-                updatePlayerList(message.players);
-
+                if (message.players && typeof message.players === 'object') {
+                    updatePlayerList(message.players);
+                } else {
+                    console.error("Invalid playersData in playerLeft:", message.players);
+                }
             } else if (message.type === 'bombPlaced') {
                 if (typeof message.x === 'number' && typeof message.y === 'number') {
                     placeBomb(message.x, message.y);
@@ -1147,11 +1176,15 @@
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
             } else if (message.type === 'updatePlayerList') {
-                updatePlayerList(message.players);
-                // Update player's speed
-                if (players[playerId] && message.players[playerId]) {
-                    players[playerId].speed = message.players[playerId].speed || 1;
-                    updatePlayerSpeed();
+                if (message.players && typeof message.players === 'object') {
+                    updatePlayerList(message.players);
+                    // Update player's speed
+                    if (players[playerId] && message.players[playerId]) {
+                        players[playerId].speed = message.players[playerId].speed || 1;
+                        updatePlayerSpeed();
+                    }
+                } else {
+                    console.error("Invalid playersData in updatePlayerList:", message.players);
                 }
             }
             // Handle other message types as needed
@@ -1204,6 +1237,13 @@
 
         // Chat functionality
         chatSend.addEventListener('click', () => {
+            const message = chatInput.value.trim();
+            if (message.length === 0) return;
+            ws.send(JSON.stringify({ type: 'chat', playerId: playerId, password: password, message: message }));
+            chatInput.value = '';
+        });
+
+        chatSend.addEventListener('touchstart', () => {
             const message = chatInput.value.trim();
             if (message.length === 0) return;
             ws.send(JSON.stringify({ type: 'chat', playerId: playerId, password: password, message: message }));
