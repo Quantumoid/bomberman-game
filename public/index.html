@@ -1010,7 +1010,9 @@
                 }
 
                 // Update player list
-                updatePlayerList(message.players);
+                if (message.players && typeof message.players === 'object') {
+                    updatePlayerList(message.players);
+                }
 
                 // Update movement speed
                 updatePlayerSpeed();
@@ -1058,7 +1060,9 @@
             } else if (message.type === 'update') {
                 if (message.playerId && typeof message.x === 'number' && typeof message.y === 'number') {
                     updatePlayerPosition(message.playerId, message.x, message.y, message.direction);
-                    updatePlayerList(message.players);
+                    if (message.players && typeof message.players === 'object') {
+                        updatePlayerList(message.players);
+                    }
                 }
             } else if (message.type === 'newPlayer') {
                 // Map new player's ID to image names
@@ -1072,15 +1076,18 @@
                 players[newPlayerId].nickname = message.nickname || `Player ${message.playerNumber || newPlayerId}`;
 
                 // Update player list
-                updatePlayerList(message.players);
+                if (message.players && typeof message.players === 'object') {
+                    updatePlayerList(message.players);
+                }
 
             } else if (message.type === 'playerLeft') {
                 if (message.playerId) {
                     removePlayer(message.playerId);
                 }
                 // Update player list
-                updatePlayerList(message.players);
-
+                if (message.players && typeof message.players === 'object') {
+                    updatePlayerList(message.players);
+                }
             } else if (message.type === 'bombPlaced') {
                 if (typeof message.x === 'number' && typeof message.y === 'number') {
                     placeBomb(message.x, message.y);
@@ -1127,7 +1134,9 @@
                 triggerPlayerHitEffect(victimId);
 
                 // Update player list in case scores changed
-                updatePlayerList(message.players);
+                if (message.players && typeof message.players === 'object') {
+                    updatePlayerList(message.players);
+                }
             } else if (message.type === 'powerUpCollected') {
                 if (typeof message.x === 'number' && typeof message.y === 'number') {
                     const idx = message.y * 15 + message.x;
@@ -1158,11 +1167,13 @@
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
             } else if (message.type === 'updatePlayerList') {
-                updatePlayerList(message.players);
-                // Update player's speed
-                if (players[playerId] && message.players[playerId]) {
-                    players[playerId].speed = message.players[playerId].speed || 1;
-                    updatePlayerSpeed();
+                if (message.players && typeof message.players === 'object') {
+                    updatePlayerList(message.players);
+                    // Update player's speed
+                    if (players[playerId] && message.players[playerId]) {
+                        players[playerId].speed = message.players[playerId].speed || 1;
+                        updatePlayerSpeed();
+                    }
                 }
             }
             // Handle other message types as needed
