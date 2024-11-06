@@ -550,10 +550,8 @@
 
 <!-- Audio elements for sound effects -->
 <audio id="bomb-explosion-sound" src="/bomb_explosion.mp3" preload="auto"></audio>
-<!-- Lazy load hit-sound -->
-<audio id="hit-sound" src="/hit_sound.wav"></audio>
-<!-- Lazy load powerup_sound -->
-<audio id="powerup-sound" src="/powerup_sound.mp3"></audio>
+<audio id="hit-sound" src="/hit_sound.wav" preload="auto"></audio>
+<audio id="powerup-sound" src="/powerup_sound.mp3" preload="auto"></audio>
 
 <!-- Nickname Overlay -->
 <div id="nickname-overlay">
@@ -614,15 +612,6 @@
                 default: return m;
             }
         });
-    }
-
-    function loadNonCriticalSound(id, src) {
-        const sound = document.getElementById(id);
-        if (!sound.dataset.loaded) {
-            sound.src = src;
-            sound.load();
-            sound.dataset.loaded = 'true';
-        }
     }
 
     function initializeGameGrid() {
@@ -1142,8 +1131,8 @@
 
                     // Play power-up sound
                     const powerupSound = document.getElementById('powerup-sound');
-                    if (powerupSound && !powerupSound.dataset.loaded) {
-                        loadNonCriticalSound('powerup-sound', '/powerup_sound.mp3');
+                    if (powerupSound) {
+                        powerupSound.currentTime = 0; // Rewind to start
                         powerupSound.play();
                     }
                 }
@@ -1252,10 +1241,7 @@
 
             // Play the hit sound
             const hitSound = document.getElementById('hit-sound');
-            if (hitSound && !hitSound.dataset.loaded) {
-                loadNonCriticalSound('hit-sound', '/hit_sound.wav');
-                hitSound.play();
-            } else if (hitSound) {
+            if (hitSound) {
                 hitSound.currentTime = 0;
                 hitSound.play();
             }
