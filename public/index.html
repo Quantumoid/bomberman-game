@@ -1049,6 +1049,7 @@
             } else if (message.type === 'update') {
                 if (message.playerId && typeof message.x === 'number' && typeof message.y === 'number') {
                     updatePlayerPosition(message.playerId, message.x, message.y, message.direction);
+                    updatePlayerList(message.players);
                 }
             } else if (message.type === 'newPlayer') {
                 // Map new player's ID to image names
@@ -1091,7 +1092,7 @@
                 const victimId = message.playerId;
                 const attackerId = message.by;
                 const victimNickname = players[victimId] ? escapeHtml(players[victimId].nickname || `Player ${players[victimId].playerNumber || victimId}`) : 'Unknown';
-                const attackerNickname = attackerId && players[attackerId] ? escapeHtml(players[attackerId].nickname || `Player ${attackerId}.playerNumber || attackerId}`) : 'Unknown';
+                const attackerNickname = attackerId && players[attackerId] ? escapeHtml(players[attackerId].nickname || `Player ${players[attackerId].playerNumber || attackerId}`) : 'Unknown';
                 
                 // Update player position
                 if (message.x !== undefined && message.y !== undefined) {
@@ -1115,6 +1116,9 @@
                 
                 // Trigger visual effects for the victim
                 triggerPlayerHitEffect(victimId);
+
+                // Update player list in case scores changed
+                updatePlayerList(message.players);
             } else if (message.type === 'powerUpCollected') {
                 if (typeof message.x === 'number' && typeof message.y === 'number') {
                     const idx = message.y * 15 + message.x;
