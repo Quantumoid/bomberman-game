@@ -176,6 +176,8 @@
             transform: translateX(-50%);
             background: transparent;
             color: #00ffff;
+            padding: 2px 5px;
+            border-radius: 5px;
             font-size: 12px;
             white-space: nowrap;
             pointer-events: none;
@@ -184,8 +186,7 @@
             transition: text-shadow 0.3s, color 0.3s;
         }
 
-        /* Top player name styling */
-        .top-player-name {
+        .player-name.first-place {
             color: gold;
             text-shadow: 0 0 10px gold, 0 0 20px gold, 0 0 30px gold;
         }
@@ -579,11 +580,12 @@
     const players = {};
     const playerImages = {}; // Mapping of playerId to image name
     let nickname;
-    let topPlayerId = null;
 
     let keysPressed = {};
     let movementInterval = null;
     let movementSpeed = 300; // milliseconds per movement step
+
+    let firstPlaceId = null;
 
     function escapeHtml(unsafe) {
         return unsafe.replace(/[&<"'>]/g, function(m) {
@@ -694,9 +696,6 @@
         const playerName = document.createElement('div');
         playerName.classList.add('player-name', `${pid}-name`);
         playerName.textContent = players[pid].nickname || `Player ${players[pid].playerNumber || pid}`;
-        if (pid === topPlayerId) {
-            playerName.classList.add('top-player-name');
-        }
         cell.appendChild(playerName);
 
         // Update local player state
@@ -819,9 +818,6 @@
         // Sort players by score descending
         playersArray.sort((a, b) => b.score - a.score);
 
-        // Update topPlayerId
-        topPlayerId = playersArray.length > 0 ? playersArray[0].id : null;
-
         playerListElement.innerHTML = ''; // Clear existing list
         playersArray.forEach((player, index) => {
             const listItem = document.createElement('li');
@@ -861,16 +857,20 @@
             playerListElement.appendChild(listItem);
         });
 
-        // Update player names above heads
-        for (const pid in players) {
-            const playerNameElement = document.querySelector(`.cell .${pid}-name`);
-            if (playerNameElement) {
-                if (pid === topPlayerId) {
-                    playerNameElement.classList.add('top-player-name');
-                } else {
-                    playerNameElement.classList.remove('top-player-name');
+        // Update first place player
+        const firstPlayer = playersArray[0];
+        if (firstPlayer) {
+            if (firstPlaceId && firstPlaceId !== firstPlayer.id) {
+                const oldFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
+                if (oldFirstPlayerName) {
+                    oldFirstPlayerName.classList.remove('first-place');
                 }
             }
+            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
+            if (newFirstPlayerName) {
+                newFirstPlayerName.classList.add('first-place');
+            }
+            firstPlaceId = firstPlayer.id;
         }
     }
 
@@ -1254,6 +1254,36 @@
             }, 1000);
         }
 
-    </script>
+    } // Close joinGame function
+
+    window.onload = () => {
+        const nicknameOverlay = document.getElementById('nickname-overlay');
+        const nicknameInput = document.getElementById('nickname-input');
+        const nicknameSubmit = document.getElementById('nickname-submit');
+
+        nicknameSubmit.addEventListener('click', () => {
+            nickname = nicknameInput.value.trim();
+            if (nickname.length === 0) {
+                alert('Please enter a nickname.');
+                return;
+            }
+            // Hide the overlay
+            nicknameOverlay.style.display = 'none';
+            // Focus on the game area
+            joinGame();
+        });
+
+        // Allow pressing Enter to submit nickname
+        nicknameInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                nicknameSubmit.click();
+            }
+        });
+
+        // Automatically focus on the nickname input when the overlay appears
+        nicknameOverlay.style.display = 'flex';
+        nicknameInput.focus();
+    };
+</script>
 </body>
 </html>
