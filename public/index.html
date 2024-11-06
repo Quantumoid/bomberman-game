@@ -1380,6 +1380,10 @@
         ws.onerror = (error) => console.error("WebSocket error:", error);
 
         ws.onclose = () => {
+            if (exceededConnection) {
+                console.log("Reconnection blocked due to exceeded connection limit.");
+                return;
+            }
             if (reconnectAttempts < maxReconnectAttempts) {
                 reconnectAttempts++;
                 setTimeout(joinGame, reconnectDelay * Math.pow(2, reconnectAttempts));
