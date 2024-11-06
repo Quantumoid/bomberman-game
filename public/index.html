@@ -698,6 +698,11 @@
         playerName.textContent = players[pid].nickname || `Player ${players[pid].playerNumber || pid}`;
         cell.appendChild(playerName);
 
+        // If this player is first place, add the 'first-place' class
+        if (pid === firstPlaceId) {
+            playerName.classList.add('first-place');
+        }
+
         // Update local player state
         players[pid].x = x;
         players[pid].y = y;
