@@ -818,6 +818,24 @@
         // Sort players by score descending
         playersArray.sort((a, b) => b.score - a.score);
 
+        // Remove 'first-place' from the previous first player
+        if (firstPlaceId) {
+            const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
+            if (previousFirstPlayerName) {
+                previousFirstPlayerName.classList.remove('first-place');
+            }
+        }
+
+        // Update first place player
+        const firstPlayer = playersArray[0];
+        if (firstPlayer) {
+            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
+            if (newFirstPlayerName) {
+                newFirstPlayerName.classList.add('first-place');
+            }
+            firstPlaceId = firstPlayer.id;
+        }
+
         playerListElement.innerHTML = ''; // Clear existing list
         playersArray.forEach((player, index) => {
             const listItem = document.createElement('li');
@@ -856,20 +874,6 @@
 
             playerListElement.appendChild(listItem);
         });
-
-        // Remove 'first-place' from all player names
-        const allPlayerNames = document.querySelectorAll('.player-name');
-        allPlayerNames.forEach(name => name.classList.remove('first-place'));
-
-        // Update first place player
-        const firstPlayer = playersArray[0];
-        if (firstPlayer) {
-            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
-            if (newFirstPlayerName) {
-                newFirstPlayerName.classList.add('first-place');
-            }
-            firstPlaceId = firstPlayer.id;
-        }
     }
 
     function startMovement() {
@@ -1092,7 +1096,7 @@
                 const victimId = message.playerId;
                 const attackerId = message.by;
                 const victimNickname = players[victimId] ? escapeHtml(players[victimId].nickname || `Player ${players[victimId].playerNumber || victimId}`) : 'Unknown';
-                const attackerNickname = attackerId && players[attackerId] ? escapeHtml(players[attackerId].nickname || `Player ${players[attackerId].playerNumber || attackerId}`) : 'Unknown';
+                const attackerNickname = attackerId && players[attackerId] ? escapeHtml(players[attackerId].nickname || `Player ${attackerId}`) : 'Unknown';
                 
                 // Update player position
                 if (message.x !== undefined && message.y !== undefined) {
