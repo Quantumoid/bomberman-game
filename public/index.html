@@ -193,7 +193,7 @@
 
         /* Flash effect when player is hit */
         .player.hit {
-            animation: flash-red 0.5s;
+            animation: flash-red 5s;
         }
 
         @keyframes flash-red {
@@ -587,6 +587,8 @@
 
     let firstPlaceId = null;
 
+    const playerElements = {}; // Cache for player DOM elements
+
     function escapeHtml(unsafe) {
         return unsafe.replace(/[&<"'>]/g, function(m) {
             switch (m) {
@@ -654,17 +656,126 @@
         return (tile === 0 || tile === 3) && !hasBomb;
     }
 
+    function addOrUpdatePlayerListItem(player) {
+        let listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+        if (listItem) {
+            updatePlayerListItem(player, listItem);
+        } else {
+            listItem = document.createElement('li');
+            listItem.setAttribute('data-player-id', player.id);
+            listItem.classList.add('glow-text');
+            updatePlayerListItem(player, listItem);
+            playerListElement.appendChild(listItem);
+        }
+    }
+
+    function updatePlayerListItem(player, listItem) {
+        listItem.innerHTML = ''; // Clear existing content
+
+        // Create player icon
+        const playerIcon = document.createElement('img');
+        playerIcon.src = `/${playerImages[player.id] || 'default_player'}.png`;
+        playerIcon.alt = `Player ${player.playerNumber}`;
+        playerIcon.classList.add('player-icon');
+        listItem.appendChild(playerIcon);
+
+        // Add trophy based on rank
+        const index = Array.from(playerListElement.children).indexOf(listItem);
+        if (index === 0) {
+            const trophy = document.createElement('img');
+            trophy.src = '/tropheegold.png';
+            trophy.alt = 'Gold Trophy';
+            trophy.classList.add('trophy');
+            listItem.appendChild(trophy);
+        } else if (index === 1) {
+            const trophy = document.createElement('img');
+            trophy.src = '/tropheesilver.png';
+            trophy.alt = 'Silver Trophy';
+            trophy.classList.add('trophy');
+            listItem.appendChild(trophy);
+        } else if (index === 2) {
+            const trophy = document.createElement('img');
+            trophy.src = '/tropheebronze.png';
+            trophy.alt = 'Bronze Trophy';
+            trophy.classList.add('trophy');
+            listItem.appendChild(trophy);
+        }
+
+        const safeNickname = escapeHtml(player.nickname || `Player ${player.playerNumber || player.id}`);
+        const textNode = document.createTextNode(` ${safeNickname}: ${player.score} points`);
+        listItem.appendChild(textNode);
+    }
+
+    function removePlayerListItem(playerId) {
+        const listItem = playerListElement.querySelector(`li[data-player-id="${playerId}"]`);
+        if (listItem) {
+            listItem.remove();
+        }
+    }
+
+    function updatePlayerList(playersData) {
+        if (!playersData || typeof playersData !== 'object') {
+            console.error("Invalid playersData:", playersData);
+            return;
+        }
+
+        const playersArray = Object.entries(playersData).map(([pid, player]) => ({ id: pid, ...player }));
+        // Sort players by score descending
+        playersArray.sort((a, b) => b.score - a.score);
+
+        const currentPlayerIds = new Set(playersArray.map(player => player.id));
+        const existingPlayerIds = new Set(Array.from(playerListElement.querySelectorAll('li')).map(li => li.getAttribute('data-player-id')));
+
+        // Remove players not in the new list
+        existingPlayerIds.forEach(pid => {
+            if (!currentPlayerIds.has(pid)) {
+                removePlayerListItem(pid);
+            }
+        });
+
+        // Add or update players
+        playersArray.forEach(player => {
+            addOrUpdatePlayerListItem(player);
+        });
+
+        // Update first place
+        // Remove 'first-place' from the previous first player
+        if (firstPlaceId) {
+            const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
+            if (previousFirstPlayerName) {
+                previousFirstPlayerName.classList.remove('first-place');
+            }
+        }
+
+        // Update first place player
+        const firstPlayer = playersArray[0];
+        if (firstPlayer) {
+            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
+            if (newFirstPlayerName) {
+                newFirstPlayerName.classList.add('first-place');
+            }
+            firstPlaceId = firstPlayer.id;
+        }
+
+        // Reorder the list to match the sorted players
+        playersArray.forEach((player, index) => {
+            const listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+            if (listItem && playerListElement.children[index] !== listItem) {
+                playerListElement.insertBefore(listItem, playerListElement.children[index]);
+            }
+        });
+    }
+
     function updatePlayerPosition(pid, x, y, direction = 'down') {
         if (!players[pid]) {
             players[pid] = {};
         }
 
-        // Remove existing player sprite and name
-        const oldPlayerElement = document.querySelector(`.cell .${pid}`);
-        if (oldPlayerElement) oldPlayerElement.remove();
-
-        const oldPlayerName = document.querySelector(`.cell .${pid}-name`);
-        if (oldPlayerName) oldPlayerName.remove();
+        // Remove existing player sprite and name from cache
+        if (playerElements[pid]) {
+            playerElements[pid].image.remove();
+            playerElements[pid].name.remove();
+        }
 
         // Calculate the index in the grid
         const index = y * 15 + x;
@@ -703,6 +814,12 @@
             playerName.classList.add('first-place');
         }
 
+        // Cache the player elements
+        playerElements[pid] = {
+            image: playerElement,
+            name: playerName
+        };
+
         // Update local player state
         players[pid].x = x;
         players[pid].y = y;
@@ -710,12 +827,11 @@
     }
 
     function removePlayer(pid) {
-        const playerElement = document.querySelector(`.cell .${pid}`);
-        if (playerElement) playerElement.remove();
-
-        const playerName = document.querySelector(`.cell .${pid}-name`);
-        if (playerName) playerName.remove();
-
+        if (playerElements[pid]) {
+            playerElements[pid].image.remove();
+            playerElements[pid].name.remove();
+            delete playerElements[pid];
+        }
         delete players[pid];
     }
 
@@ -823,6 +939,22 @@
         // Sort players by score descending
         playersArray.sort((a, b) => b.score - a.score);
 
+        const currentPlayerIds = new Set(playersArray.map(player => player.id));
+        const existingPlayerIds = new Set(Array.from(playerListElement.querySelectorAll('li')).map(li => li.getAttribute('data-player-id')));
+
+        // Remove players not in the new list
+        existingPlayerIds.forEach(pid => {
+            if (!currentPlayerIds.has(pid)) {
+                removePlayerListItem(pid);
+            }
+        });
+
+        // Add or update players
+        playersArray.forEach(player => {
+            addOrUpdatePlayerListItem(player);
+        });
+
+        // Update first place
         // Remove 'first-place' from the previous first player
         if (firstPlaceId) {
             const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
@@ -841,43 +973,12 @@
             firstPlaceId = firstPlayer.id;
         }
 
-        playerListElement.innerHTML = ''; // Clear existing list
+        // Reorder the list to match the sorted players
         playersArray.forEach((player, index) => {
-            const listItem = document.createElement('li');
-
-            // Create player icon
-            const playerIcon = document.createElement('img');
-            playerIcon.src = `/${playerImages[player.id] || 'default_player'}.png`;
-            playerIcon.alt = `Player ${player.playerNumber}`;
-            playerIcon.classList.add('player-icon');
-            listItem.appendChild(playerIcon);
-
-            // Add trophy based on rank
-            if (index === 0) {
-                const trophy = document.createElement('img');
-                trophy.src = '/tropheegold.png';
-                trophy.alt = 'Gold Trophy';
-                trophy.classList.add('trophy');
-                listItem.appendChild(trophy);
-            } else if (index === 1) {
-                const trophy = document.createElement('img');
-                trophy.src = '/tropheesilver.png';
-                trophy.alt = 'Silver Trophy';
-                trophy.classList.add('trophy');
-                listItem.appendChild(trophy);
-            } else if (index === 2) {
-                const trophy = document.createElement('img');
-                trophy.src = '/tropheebronze.png';
-                trophy.alt = 'Bronze Trophy';
-                trophy.classList.add('trophy');
-                listItem.appendChild(trophy);
+            const listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+            if (listItem && playerListElement.children[index] !== listItem) {
+                playerListElement.insertBefore(listItem, playerListElement.children[index]);
             }
-
-            const safeNickname = escapeHtml(player.nickname || `Player ${player.playerNumber || player.id}`);
-            const textNode = document.createTextNode(` ${safeNickname}: ${player.score} points`);
-            listItem.appendChild(textNode);
-
-            playerListElement.appendChild(listItem);
         });
     }
 
@@ -1241,7 +1342,7 @@
         // Function to trigger player hit effect
         function triggerPlayerHitEffect(victimId) {
             // Select the player's DOM element
-            const playerElement = document.querySelector(`.cell .${victimId}`);
+            const playerElement = playerElements[victimId]?.image;
             if (!playerElement) return;
         
             // Add the 'hit' class to trigger the flash effect
