@@ -6,7 +6,7 @@
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        script-src 'self' 'unsafe-inline';
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
         connect-src 'self' ws:;
@@ -174,15 +174,20 @@
             top: -18px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.6);
+            background: transparent;
             color: #00ffff;
-            padding: 2px 5px;
-            border-radius: 5px;
             font-size: 12px;
             white-space: nowrap;
             pointer-events: none;
             text-shadow: 0 0 5px #00ffff;
             z-index: 3;
+            transition: text-shadow 0.3s, color 0.3s;
+        }
+
+        /* Top player name styling */
+        .top-player-name {
+            color: gold;
+            text-shadow: 0 0 10px gold, 0 0 20px gold, 0 0 30px gold;
         }
 
         /* Flash effect when player is hit */
@@ -574,6 +579,7 @@
     const players = {};
     const playerImages = {}; // Mapping of playerId to image name
     let nickname;
+    let topPlayerId = null;
 
     let keysPressed = {};
     let movementInterval = null;
@@ -688,6 +694,9 @@
         const playerName = document.createElement('div');
         playerName.classList.add('player-name', `${pid}-name`);
         playerName.textContent = players[pid].nickname || `Player ${players[pid].playerNumber || pid}`;
+        if (pid === topPlayerId) {
+            playerName.classList.add('top-player-name');
+        }
         cell.appendChild(playerName);
 
         // Update local player state
@@ -810,6 +819,9 @@
         // Sort players by score descending
         playersArray.sort((a, b) => b.score - a.score);
 
+        // Update topPlayerId
+        topPlayerId = playersArray.length > 0 ? playersArray[0].id : null;
+
         playerListElement.innerHTML = ''; // Clear existing list
         playersArray.forEach((player, index) => {
             const listItem = document.createElement('li');
@@ -848,6 +860,18 @@
 
             playerListElement.appendChild(listItem);
         });
+
+        // Update player names above heads
+        for (const pid in players) {
+            const playerNameElement = document.querySelector(`.cell .${pid}-name`);
+            if (playerNameElement) {
+                if (pid === topPlayerId) {
+                    playerNameElement.classList.add('top-player-name');
+                } else {
+                    playerNameElement.classList.remove('top-player-name');
+                }
+            }
+        }
     }
 
     function startMovement() {
@@ -1230,36 +1254,6 @@
             }, 1000);
         }
 
-    } // Close joinGame function
-
-    window.onload = () => {
-        const nicknameOverlay = document.getElementById('nickname-overlay');
-        const nicknameInput = document.getElementById('nickname-input');
-        const nicknameSubmit = document.getElementById('nickname-submit');
-
-        nicknameSubmit.addEventListener('click', () => {
-            nickname = nicknameInput.value.trim();
-            if (nickname.length === 0) {
-                alert('Please enter a nickname.');
-                return;
-            }
-            // Hide the overlay
-            nicknameOverlay.style.display = 'none';
-            // Focus on the game area
-            joinGame();
-        });
-
-        // Allow pressing Enter to submit nickname
-        nicknameInput.addEventListener('keypress', (event) => {
-            if (event.key === 'Enter') {
-                nicknameSubmit.click();
-            }
-        });
-
-        // Automatically focus on the nickname input when the overlay appears
-        nicknameOverlay.style.display = 'flex';
-        nicknameInput.focus();
-    };
-</script>
+    </script>
 </body>
 </html>
