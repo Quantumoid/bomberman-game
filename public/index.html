@@ -1145,8 +1145,12 @@
         const urlParts = window.location.pathname.split('/');
         password = urlParts[urlParts.length - 1];
 
-        // Generate a unique playerId
-        playerId = 'player-' + Math.random().toString(36).substr(2, 9);
+        // Retrieve or generate a unique playerId
+        playerId = localStorage.getItem('playerId');
+        if (!playerId) {
+            playerId = 'player-' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('playerId', playerId);
+        }
 
         if (ws && ws.readyState !== WebSocket.CLOSED) {
             ws.close();
