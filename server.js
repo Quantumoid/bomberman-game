@@ -6,9 +6,13 @@ const path = require('path');
 const os = require('os');
 const rateLimit = require('express-rate-limit');
 const { Worker } = require('worker_threads');
+const MAX_CONNECTIONS_PER_IP = 1;
 
 const app = express();
 const port = process.env.PORT || 10000;
+
+// **Add the following line to trust the first proxy**
+app.set('trust proxy', 1);
 
 // Maximum number of active games
 const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 22;
@@ -22,7 +26,7 @@ function log(level, message) {
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 1000, // limit each IP to 1000 requests per windowMs
+    max: 500, // limit each IP to 500 requests per windowMs
     message: 'Too many requests from this IP, please try again after a minute.',
 });
 
@@ -31,7 +35,7 @@ app.use(generalLimiter);
 // Specific Rate Limiter for /create-game to prevent abuse
 const createGameLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 20, // limit each IP to 20 create-game requests per windowMs
+    max: 22, // limit each IP to 22 create-game requests per windowMs
     message: 'Too many game creation requests from this IP, please try again after a minute.',
 });
 
@@ -246,14 +250,31 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // Increase server timeouts to prevent Render from marking it unhealthy
-server.keepAliveTimeout = 120000; // 2 minutes
-server.headersTimeout = 120000;    // 2 minutes
+server.keepAliveTimeout = 86400000; // 1 day in milliseconds
+server.headersTimeout = 86400000;   // 1 day in milliseconds
 
 // Store all active games
 const games = {};
 
+// Map to track number of connections per IP
+const ipConnections = new Map();
+
 // WebSocket connection handling
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+    const ip = req.ip;
+
+    // Check if the IP has reached the connection limit
+    const currentConnections = ipConnections.get(ip) || 0;
+    if (currentConnections >= MAX_CONNECTIONS_PER_IP) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Maximum connections per IP exceeded.' }));
+        ws.close();
+        log('warn', `Connection from IP ${ip} rejected: maximum connections exceeded.`);
+        return;
+    }
+
+    // Increment the connection count for the IP
+    ipConnections.set(ip, currentConnections + 1);
+
     let playerId;
     let gamePassword;
 
@@ -510,6 +531,14 @@ wss.on('connection', (ws) => {
                     delete games[gamePassword];
                 }
             }
+        }
+
+        // Decrement the connection count for the IP
+        const currentConnections = ipConnections.get(ip) || 1;
+        if (currentConnections <= 1) {
+            ipConnections.delete(ip);
+        } else {
+            ipConnections.set(ip, currentConnections - 1);
         }
     });
 
