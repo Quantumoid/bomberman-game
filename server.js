@@ -6,7 +6,7 @@ const path = require('path');
 const os = require('os');
 const rateLimit = require('express-rate-limit');
 const { Worker } = require('worker_threads');
-const MAX_CONNECTIONS_PER_IP = 4;
+const MAX_CONNECTIONS_PER_IP = 1;
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -267,7 +267,7 @@ wss.on('connection', (ws, req) => {
     const currentConnections = ipConnections.get(ip) || 0;
     if (currentConnections >= MAX_CONNECTIONS_PER_IP) {
         ws.send(JSON.stringify({ type: 'error', message: 'Maximum connections per IP exceeded.' }));
-        ws.close(4001, 'Maximum connections per IP exceeded.');
+        ws.close();
         log('warn', `Connection from IP ${ip} rejected: maximum connections exceeded.`);
         return;
     }
@@ -289,7 +289,7 @@ wss.on('connection', (ws, req) => {
 
                 if (!gamePassword) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Invalid game password.' }));
-                    ws.close(4002, 'Invalid game password.');
+                    ws.close();
                     return;
                 }
 
@@ -297,7 +297,7 @@ wss.on('connection', (ws, req) => {
 
                 if (!game) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Game not found.' }));
-                    ws.close(4003, 'Game not found.');
+                    ws.close();
                     return;
                 }
 
@@ -307,7 +307,7 @@ wss.on('connection', (ws, req) => {
                 // Limit the number of players if necessary
                 if (playerNumber > playerStartingPositions.length) { // Match number of starting positions
                     ws.send(JSON.stringify({ type: 'error', message: 'Game is full.' }));
-                    ws.close(4004, 'Game is full.');
+                    ws.close();
                     return;
                 }
 
@@ -317,7 +317,7 @@ wss.on('connection', (ws, req) => {
                 // Validate initial position
                 if (!isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Invalid initial position.' }));
-                    ws.close(4005, 'Invalid initial position.');
+                    ws.close();
                     return;
                 }
 
