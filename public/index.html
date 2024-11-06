@@ -11,6 +11,15 @@
         font-src 'self' https://fonts.gstatic.com;
         connect-src 'self' ws:;
     ">
+    <!-- Preload critical images -->
+    <link rel="preload" href="/power_up_max_bombs.png" as="image">
+    <link rel="preload" href="/power_up_extra_blast_radius.png" as="image">
+    <link rel="preload" href="/speed_powerup.png" as="image">
+    <link rel="preload" href="/bomb_sprite.png" as="image">
+    <link rel="preload" href="/explosion_sprite.png" as="image">
+    <link rel="preload" href="/tropheegold.png" as="image">
+    <link rel="preload" href="/tropheesilver.png" as="image">
+    <link rel="preload" href="/tropheebronze.png" as="image">
     <style>
         body { 
             display: flex; 
@@ -540,9 +549,9 @@
 </div>
 
 <!-- Audio elements for sound effects -->
-<audio id="powerup-sound" src="/powerup_sound.mp3"></audio>
-<audio id="bomb-explosion-sound" src="/bomb_explosion.mp3"></audio>
-<audio id="hit-sound" src="/hit_sound.wav"></audio>
+<audio id="bomb-explosion-sound" src="/bomb_explosion.mp3" preload="auto"></audio>
+<audio id="hit-sound" src="/hit_sound.wav" preload="auto"></audio>
+<audio id="powerup-sound" src="/powerup_sound.mp3" preload="auto"></audio>
 
 <!-- Nickname Overlay -->
 <div id="nickname-overlay">
@@ -554,6 +563,20 @@
 </div>
 
 <script>
+    // Preload critical images
+    const criticalImageSources = [
+        '/player1_up.png', '/player1_down.png', '/player1_left.png', '/player1_right.png',
+        '/player2_up.png', '/player2_down.png', '/player2_left.png', '/player2_right.png',
+        '/player3_up.png', '/player3_down.png', '/player3_left.png', '/player3_right.png',
+        '/player4_up.png', '/player4_down.png', '/player4_left.png', '/player4_right.png',
+        '/default_player.png'
+    ];
+
+    criticalImageSources.forEach(src => {
+        const img = new Image();
+        img.src = src;
+    });
+
     let ws;
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
@@ -733,7 +756,9 @@
         const bombExplosionSound = document.getElementById('bomb-explosion-sound');
         if (bombExplosionSound) {
             bombExplosionSound.currentTime = 0; // Rewind to start
-            bombExplosionSound.play();
+            bombExplosionSound.play().catch(error => {
+                console.error("Error playing bomb explosion sound:", error);
+            });
         }
 
         // Display explosion effect in all positions
@@ -1110,7 +1135,9 @@
                     const powerupSound = document.getElementById('powerup-sound');
                     if (powerupSound) {
                         powerupSound.currentTime = 0; // Rewind to start
-                        powerupSound.play();
+                        powerupSound.play().catch(error => {
+                            console.error("Error playing power-up sound:", error);
+                        });
                     }
                 }
             } else if (message.type === 'chat') {
@@ -1220,7 +1247,9 @@
             const hitSound = document.getElementById('hit-sound');
             if (hitSound) {
                 hitSound.currentTime = 0;
-                hitSound.play();
+                hitSound.play().catch(error => {
+                    console.error("Error playing hit sound:", error);
+                });
             }
         
             // Remove the explosion element after the animation completes (e.g., 1s)
