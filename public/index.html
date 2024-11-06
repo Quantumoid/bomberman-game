@@ -359,7 +359,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.85);
-            display: flex;
+            display: none; /* Hidden by default */
             justify-content: center;
             align-items: center;
             z-index: 1000; /* Ensure it is on top */
@@ -631,6 +631,7 @@
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
     const reconnectDelay = 1000;
+    const maxConnectionsExceededCooldown = 30000; // 30-second cooldown
     const gameElement = document.getElementById('game');
     const statusElement = document.getElementById('status');
     const playerListElement = document.getElementById('players');
@@ -654,6 +655,8 @@
     let firstPlaceId = null;
 
     const playerElements = {}; // Cache for player DOM elements
+
+    let exceededConnection = false;
 
     function escapeHtml(unsafe) {
         return unsafe.replace(/[&<"'>]/g, function(m) {
@@ -995,59 +998,6 @@
         }, 1000);
     }
 
-    function updatePlayerList(playersData) {
-        if (!playersData || typeof playersData !== 'object') {
-            console.error("Invalid playersData:", playersData);
-            return;
-        }
-
-        const playersArray = Object.entries(playersData).map(([pid, player]) => ({ id: pid, ...player }));
-        // Sort players by score descending
-        playersArray.sort((a, b) => b.score - a.score);
-
-        const currentPlayerIds = new Set(playersArray.map(player => player.id));
-        const existingPlayerIds = new Set(Array.from(playerListElement.querySelectorAll('li')).map(li => li.getAttribute('data-player-id')));
-
-        // Remove players not in the new list
-        existingPlayerIds.forEach(pid => {
-            if (!currentPlayerIds.has(pid)) {
-                removePlayerListItem(pid);
-            }
-        });
-
-        // Add or update players
-        playersArray.forEach(player => {
-            addOrUpdatePlayerListItem(player);
-        });
-
-        // Update first place
-        // Remove 'first-place' from the previous first player
-        if (firstPlaceId) {
-            const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
-            if (previousFirstPlayerName) {
-                previousFirstPlayerName.classList.remove('first-place');
-            }
-        }
-
-        // Update first place player
-        const firstPlayer = playersArray[0];
-        if (firstPlayer) {
-            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
-            if (newFirstPlayerName) {
-                newFirstPlayerName.classList.add('first-place');
-            }
-            firstPlaceId = firstPlayer.id;
-        }
-
-        // Reorder the list to match the sorted players
-        playersArray.forEach((player, index) => {
-            const listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
-            if (listItem && playerListElement.children[index] !== listItem) {
-                playerListElement.insertBefore(listItem, playerListElement.children[index]);
-            }
-        });
-    }
-
     function startMovement() {
         if (movementInterval) return;
         movementInterval = setInterval(() => {
@@ -1126,6 +1076,11 @@
     }
 
     function joinGame() {
+        if (exceededConnection) {
+            console.log("Reconnection blocked due to exceeded connection limit.");
+            return;
+        }
+
         // Extract password from URL
         const urlParts = window.location.pathname.split('/');
         password = urlParts[urlParts.length - 1];
@@ -1148,6 +1103,12 @@
 
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
+            if (message.type === 'error' && message.message.includes("maximum connections exceeded")) {
+                exceededConnection = true;
+                showMessage("Connection limit exceeded. Please close other tabs or wait a moment.");
+                setTimeout(() => exceededConnection = false, maxConnectionsExceededCooldown);
+                return;
+            }
             if (message.type === 'start') {
                 // Store your player number
                 if (message.playerNumber) {
@@ -1349,17 +1310,6 @@
                         updatePlayerSpeed();
                     }
                 }
-            } else if (message.type === 'error') {
-                const errorOverlay = document.getElementById('error-overlay');
-                const errorText = document.getElementById('error-text');
-                const errorClose = document.getElementById('error-close');
-
-                errorText.textContent = message.message || 'An unknown error occurred.';
-                errorOverlay.style.display = 'flex';
-
-                errorClose.addEventListener('click', () => {
-                    errorOverlay.style.display = 'none';
-                });
             }
             // Handle other message types as needed
         };
@@ -1368,6 +1318,10 @@
         ws.onerror = (error) => console.error("WebSocket error:", error);
 
         ws.onclose = () => {
+            if (exceededConnection) {
+                console.log("Connection closed due to maximum connections exceeded.");
+                return;
+            }
             if (reconnectAttempts < maxReconnectAttempts) {
                 reconnectAttempts++;
                 setTimeout(joinGame, reconnectDelay * Math.pow(2, reconnectAttempts));
@@ -1467,6 +1421,8 @@
         const nicknameOverlay = document.getElementById('nickname-overlay');
         const nicknameInput = document.getElementById('nickname-input');
         const nicknameSubmit = document.getElementById('nickname-submit');
+        const errorOverlay = document.getElementById('error-overlay');
+        const errorClose = document.getElementById('error-close');
 
         nicknameSubmit.addEventListener('click', () => {
             nickname = nicknameInput.value.trim();
@@ -1476,7 +1432,7 @@
             }
             // Hide the overlay
             nicknameOverlay.style.display = 'none';
-            // Focus on the game area
+            // Join the game
             joinGame();
         });
 
@@ -1490,6 +1446,11 @@
         // Automatically focus on the nickname input when the overlay appears
         nicknameOverlay.style.display = 'flex';
         nicknameInput.focus();
+
+        // Close error overlay when close button is clicked
+        errorClose.addEventListener('click', () => {
+            errorOverlay.style.display = 'none';
+        });
     };
 </script>
 </body>
