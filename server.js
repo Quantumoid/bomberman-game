@@ -259,6 +259,9 @@ const games = {};
 // Map to track number of connections per IP
 const ipConnections = new Map();
 
+// Map to track active player connections
+const activePlayers = new Map();
+
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
     // Gebruik het IP uit de X-Forwarded-For header of fallback naar remoteAddress
@@ -307,6 +310,16 @@ wss.on('connection', (ws, req) => {
                     return;
                 }
 
+                // Check if playerId is already connected
+                if (activePlayers.has(playerId)) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Player is already connected.' }));
+                    ws.close(4006, 'Player is already connected.');
+                    log('warn', `Player ${playerId} attempted to connect multiple times from IP: ${ip}`);
+                    return;
+                }
+
+                activePlayers.set(playerId, ws);
+
                 const numPlayers = Object.keys(game.players).length;
                 const playerNumber = numPlayers + 1; // Assign player number
 
@@ -314,6 +327,7 @@ wss.on('connection', (ws, req) => {
                 if (playerNumber > playerStartingPositions.length) { // Match number of starting positions
                     ws.send(JSON.stringify({ type: 'error', message: 'Game is full.' }));
                     ws.close(4004, 'Game is full.');
+                    activePlayers.delete(playerId);
                     return;
                 }
 
@@ -324,6 +338,7 @@ wss.on('connection', (ws, req) => {
                 if (!isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Invalid initial position.' }));
                     ws.close(4005, 'Invalid initial position.');
+                    activePlayers.delete(playerId);
                     return;
                 }
 
@@ -539,6 +554,11 @@ wss.on('connection', (ws, req) => {
             }
         }
 
+        // Remove playerId from activePlayers map
+        if (playerId && activePlayers.has(playerId)) {
+            activePlayers.delete(playerId);
+        }
+
         // Decrement the connection count for the IP
         const currentConnections = ipConnections.get(ip) || 1;
         if (currentConnections <= 1) {
@@ -546,6 +566,8 @@ wss.on('connection', (ws, req) => {
         } else {
             ipConnections.set(ip, currentConnections - 1);
         }
+
+        log('info', `WebSocket verbinding van IP: ${ip} gesloten.`);
     });
 
     ws.on('error', (error) => {

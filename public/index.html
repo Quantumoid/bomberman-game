@@ -1145,11 +1145,11 @@
         const urlParts = window.location.pathname.split('/');
         password = urlParts[urlParts.length - 1];
 
-        // Retrieve or generate a unique playerId
-        playerId = localStorage.getItem('playerId');
+        // Retrieve or generate a unique playerId using sessionStorage
+        playerId = sessionStorage.getItem('playerId');
         if (!playerId) {
             playerId = 'player-' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('playerId', playerId);
+            sessionStorage.setItem('playerId', playerId);
         }
 
         if (ws && ws.readyState !== WebSocket.CLOSED) {
@@ -1340,7 +1340,7 @@
                     // Play power-up sound
                     const powerupSound = document.getElementById('powerup-sound');
                     if (powerupSound) {
-                        powerupSound.currentTime = 0; // Rewind to start
+                        powerupSound.currentTime = 0;
                         powerupSound.play();
                     }
                 }
