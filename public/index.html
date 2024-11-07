@@ -23,6 +23,42 @@
             overflow: hidden;
             position: relative;
         }
+        #background-universe {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background: transparent;
+            z-index: -2;
+            overflow: hidden;
+        }
+        #background-universe::before, #background-universe::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background: transparent;
+            background-image: radial-gradient(white 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+            animation: moveStars1 100s linear infinite;
+        }
+        #background-universe::after {
+            background-size: 100px 100px;
+            opacity: 0.2;
+            animation: moveStars2 150s linear infinite;
+        }
+        @keyframes moveStars1 {
+            from { transform: translate(0, 0); }
+            to { transform: translate(-50%, -50%); }
+        }
+        @keyframes moveStars2 {
+            from { transform: translate(0, 0); }
+            to { transform: translate(-100%, -100%); }
+        }
         #game-container { 
             display: flex; 
             flex-direction: row; 
@@ -31,6 +67,8 @@
             height: 100%;
             padding: 20px;
             box-sizing: border-box;
+            position: relative;
+            z-index: 1;
         }
         #chat-container {
             display: flex;
@@ -253,7 +291,7 @@
 
         /* Updated styles for the player list */
         #player-list {
-            background: linear-gradient(135deg, #0f4037, #99f2c8);
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
             border: 2px solid #00ffff;
             padding: 20px;
             border-radius: 15px;
@@ -585,6 +623,8 @@
 </head>
 <body>
 
+<div id="background-universe"></div>
+
 <div id="game-container">
     <div id="chat-container">
         <h2>Chat</h2>
@@ -610,7 +650,7 @@
 <div id="error-overlay">
     <div id="error-message-box">
         <h2 class="glow-text">Connection Refused</h2>
-        <p class="glow-text">You already have an active game session open. Please close the other window to join a new game.</p>
+        <p class="glow-text">Too many connections from your IP. Please close the game on one of the computers on the same network first.</p>
         <button id="error-retry">Retry</button>
     </div>
 </div>
@@ -784,6 +824,222 @@
         if (listItem) {
             listItem.remove();
         }
+    }
+
+    function updatePlayerList(playersData) {
+        if (!playersData || typeof playersData !== 'object') {
+            console.error("Invalid playersData:", playersData);
+            return;
+        }
+
+        const playersArray = Object.entries(playersData).map(([pid, player]) => ({ id: pid, ...player }));
+        // Sort players by score descending
+        playersArray.sort((a, b) => b.score - a.score);
+
+        const currentPlayerIds = new Set(playersArray.map(player => player.id));
+        const existingPlayerIds = new Set(Array.from(playerListElement.querySelectorAll('li')).map(li => li.getAttribute('data-player-id')));
+
+        // Remove players not in the new list
+        existingPlayerIds.forEach(pid => {
+            if (!currentPlayerIds.has(pid)) {
+                removePlayerListItem(pid);
+            }
+        });
+
+        // Add or update players
+        playersArray.forEach(player => {
+            addOrUpdatePlayerListItem(player);
+        });
+
+        // Update first place
+        // Remove 'first-place' from the previous first player
+        if (firstPlaceId) {
+            const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
+            if (previousFirstPlayerName) {
+                previousFirstPlayerName.classList.remove('first-place');
+            }
+        }
+
+        // Update first place player
+        const firstPlayer = playersArray[0];
+        if (firstPlayer) {
+            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
+            if (newFirstPlayerName) {
+                newFirstPlayerName.classList.add('first-place');
+            }
+            firstPlaceId = firstPlayer.id;
+        }
+
+        // Reorder the list to match the sorted players
+        playersArray.forEach((player, index) => {
+            const listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+            if (listItem && playerListElement.children[index] !== listItem) {
+                playerListElement.insertBefore(listItem, playerListElement.children[index]);
+            }
+        });
+    }
+
+    function updatePlayerPosition(pid, x, y, direction = 'down') {
+        if (!players[pid]) {
+            players[pid] = {};
+        }
+
+        // Remove existing player sprite and name from cache
+        if (playerElements[pid]) {
+            playerElements[pid].image.remove();
+            playerElements[pid].name.remove();
+        }
+
+        // Calculate the index in the grid
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+
+        if (!cell) {
+            console.error(`Cell at index ${index} is undefined. x: ${x}, y: ${y}`);
+            return;
+        }
+
+        // Map 'ArrowUp' to 'up', etc.
+        const directionMap = {
+            'ArrowUp': 'up',
+            'ArrowDown': 'down',
+            'ArrowLeft': 'left',
+            'ArrowRight': 'right'
+        };
+
+        const mappedDirection = directionMap[direction] || direction;
+
+        const playerElement = document.createElement('img');
+        // Use the mapped image name
+        const imageName = playerImages[pid] ? playerImages[pid] : 'default_player';
+        playerElement.src = `/${imageName}_${mappedDirection}.png`;
+        playerElement.classList.add('player', pid, 'glow-text');
+        cell.appendChild(playerElement);
+
+        // Add player name
+        const playerName = document.createElement('div');
+        playerName.classList.add('player-name', `${pid}-name`);
+        playerName.textContent = players[pid].nickname || `Player ${players[pid].playerNumber || pid}`;
+        cell.appendChild(playerName);
+
+        // If this player is first place, add the 'first-place' class
+        if (pid === firstPlaceId) {
+            playerName.classList.add('first-place');
+        }
+
+        // Cache the player elements
+        playerElements[pid] = {
+            image: playerElement,
+            name: playerName
+        };
+
+        // Update local player state
+        players[pid].x = x;
+        players[pid].y = y;
+        players[pid].direction = mappedDirection;
+    }
+
+    function removePlayer(pid) {
+        if (playerElements[pid]) {
+            playerElements[pid].image.remove();
+            playerElements[pid].name.remove();
+            delete playerElements[pid];
+        }
+        delete players[pid];
+    }
+
+    function placeBomb(x, y) {
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+
+        if (!cell) {
+            console.error(`Cell at index ${index} is undefined. x: ${x}, y: ${y}`);
+            return;
+        }
+
+        const bombElement = document.createElement('img');
+        bombElement.src = '/bomb_sprite.png';
+        bombElement.classList.add('bomb', 'glow-text');
+        cell.appendChild(bombElement);
+    }
+
+    function explodeBomb(x, y, destroyedBricks, newPowerUps, explosionPositions) {
+        // Remove bomb sprite at the center
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+        const bombElement = cell.querySelector('.bomb');
+        if (bombElement) {
+            bombElement.remove();
+        }
+
+        // Play bomb explosion sound
+        const bombExplosionSound = document.getElementById('bomb-explosion-sound');
+        if (bombExplosionSound) {
+            bombExplosionSound.currentTime = 0; // Rewind to start
+            bombExplosionSound.play();
+        }
+
+        // Display explosion effect in all positions
+        explosionPositions.forEach(pos => {
+            const idx = pos.y * 15 + pos.x;
+            const explosionCell = gameElement.children[idx];
+
+            if (!explosionCell) {
+                console.error(`Cell at index ${idx} is undefined. x: ${pos.x}, y: ${pos.y}`);
+                return;
+            }
+
+            // Display explosion effect
+            displayExplosion(explosionCell);
+
+            // If the tile was a brick wall, update it
+            if (map[pos.y][pos.x] === 1) {
+                map[pos.y][pos.x] = 0;
+                explosionCell.classList.remove('brick-wall');
+                explosionCell.classList.add('empty-space');
+            }
+
+            // Remove bomb sprites in the explosion area
+            const bombInCell = explosionCell.querySelector('.bomb');
+            if (bombInCell) {
+                bombInCell.remove();
+            }
+        });
+
+        // Handle new power-ups
+        newPowerUps.forEach(powerUp => {
+            const idx = powerUp.y * 15 + powerUp.x;
+            const powerUpCell = gameElement.children[idx];
+            const powerUpKey = `${powerUp.x},${powerUp.y}`;
+            powerUps[powerUpKey] = powerUp.type; // Update powerUps object
+            map[powerUp.y][powerUp.x] = 0; // Update map array
+
+            // Remove any existing classes (e.g., empty-space)
+            powerUpCell.className = 'cell empty-space';
+
+            // Create an img element for the power-up icon
+            const powerUpElement = document.createElement('img');
+            powerUpElement.classList.add('power-up-icon');
+
+            if (powerUp.type === 'bombCapacity') {
+                powerUpElement.src = '/power_up_max_bombs.png';
+            } else if (powerUp.type === 'blastRadius') {
+                powerUpElement.src = '/power_up_extra_blast_radius.png';
+            } else if (powerUp.type === 'speed') {
+                powerUpElement.src = '/speed_powerup.png';
+            }
+
+            powerUpCell.appendChild(powerUpElement);
+        });
+    }
+
+    function displayExplosion(cell) {
+        const explosionElement = document.createElement('div');
+        explosionElement.classList.add('explosion-effect');
+        cell.appendChild(explosionElement);
+        setTimeout(() => {
+            explosionElement.remove();
+        }, 1000);
     }
 
     function updatePlayerList(playersData) {
