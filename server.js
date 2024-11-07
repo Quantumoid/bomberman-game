@@ -6,7 +6,6 @@ const path = require('path');
 const os = require('os');
 const rateLimit = require('express-rate-limit');
 const { Worker } = require('worker_threads');
-const MAX_CONNECTIONS_PER_IP = 1;
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -26,7 +25,7 @@ function log(level, message) {
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 500, // limit each IP to 500 requests per windowMs
+    max: 1000, // limit each IP to 1000 requests per windowMs
     message: 'Too many requests from this IP, please try again after a minute.',
 });
 
@@ -35,7 +34,7 @@ app.use(generalLimiter);
 // Specific Rate Limiter for /create-game to prevent abuse
 const createGameLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 22, // limit each IP to 22 create-game requests per windowMs
+    max: 20, // limit each IP to 20 create-game requests per windowMs
     message: 'Too many game creation requests from this IP, please try again after a minute.',
 });
 
@@ -63,7 +62,7 @@ const playerStartingPositions = [
 // Function to create a new map with strategic indestructible walls
 function createRandomMap() {
     return new Promise((resolve, reject) => {
-        const worker = new Worker(`
+        const worker = new Worker(
             const { parentPort } = require('worker_threads');
 
             const playerStartingPositions = [
@@ -172,7 +171,7 @@ function createRandomMap() {
                     parentPort.postMessage({ error: error.message });
                 }
             });
-        `, { eval: true });
+        , { eval: true });
 
         worker.on('message', (message) => {
             if (message.error) {
@@ -237,7 +236,7 @@ async function createRandomMapWithRetries(maxRetries = 5) {
                 throw new Error('Generated map does not connect all starting positions.');
             }
         } catch (error) {
-            log('warn', `Map generation attempt ${attempt} failed: ${error.message}`);
+            log('warn', Map generation attempt ${attempt} failed: ${error.message});
             if (attempt === maxRetries) {
                 throw error;
             }
@@ -250,31 +249,14 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // Increase server timeouts to prevent Render from marking it unhealthy
-server.keepAliveTimeout = 86400000; // 1 day in milliseconds
-server.headersTimeout = 86400000;   // 1 day in milliseconds
+server.keepAliveTimeout = 120000; // 2 minutes
+server.headersTimeout = 120000;    // 2 minutes
 
 // Store all active games
 const games = {};
 
-// Map to track number of connections per IP
-const ipConnections = new Map();
-
 // WebSocket connection handling
-wss.on('connection', (ws, req) => {
-    const ip = req.ip;
-
-    // Check if the IP has reached the connection limit
-    const currentConnections = ipConnections.get(ip) || 0;
-    if (currentConnections >= MAX_CONNECTIONS_PER_IP) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Maximum connections per IP exceeded.' }));
-        ws.close();
-        log('warn', `Connection from IP ${ip} rejected: maximum connections exceeded.`);
-        return;
-    }
-
-    // Increment the connection count for the IP
-    ipConnections.set(ip, currentConnections + 1);
-
+wss.on('connection', (ws) => {
     let playerId;
     let gamePassword;
 
@@ -372,7 +354,7 @@ wss.on('connection', (ws, req) => {
                     players: game.players
                 });
 
-                log('info', `Player ${nickname} joined game ${gamePassword} as Player ${playerNumber}`);
+                log('info', Player ${nickname} joined game ${gamePassword} as Player ${playerNumber});
             }
 
             if (data.type === 'move') {
@@ -406,7 +388,7 @@ wss.on('connection', (ws, req) => {
                     player.y = newY;
 
                     // Check for power-up at new position
-                    const powerUpKey = `${newX},${newY}`;
+                    const powerUpKey = ${newX},${newY};
                     if (game.powerUps.has(powerUpKey)) {
                         const powerUp = game.powerUps.get(powerUpKey);
                         applyPowerUp(player, powerUp);
@@ -484,7 +466,7 @@ wss.on('connection', (ws, req) => {
             }
 
         } catch (error) {
-            log('error', `WebSocket Error handling message: ${error.message}`);
+            log('error', WebSocket Error handling message: ${error.message});
             ws.send(JSON.stringify({ type: 'error', message: 'Internal server error.' }));
         }
     });
@@ -494,7 +476,7 @@ wss.on('connection', (ws, req) => {
             const game = games[gamePassword];
             const player = game.players[playerId];
             if (player) {
-                log('info', `Player ${player.nickname} left game ${gamePassword}`);
+                log('info', Player ${player.nickname} left game ${gamePassword});
                 delete game.players[playerId];
                 game.clients.delete(ws);
 
@@ -521,7 +503,7 @@ wss.on('connection', (ws, req) => {
 
                 // If no clients remain, delete the game
                 if (game.clients.size === 0) {
-                    log('info', `Deleting empty game ${gamePassword}`);
+                    log('info', Deleting empty game ${gamePassword});
                     // Clear game creation timeout
                     if (game.timeout) clearTimeout(game.timeout);
                     // Clear remaining bomb timeouts
@@ -532,18 +514,10 @@ wss.on('connection', (ws, req) => {
                 }
             }
         }
-
-        // Decrement the connection count for the IP
-        const currentConnections = ipConnections.get(ip) || 1;
-        if (currentConnections <= 1) {
-            ipConnections.delete(ip);
-        } else {
-            ipConnections.set(ip, currentConnections - 1);
-        }
     });
 
     ws.on('error', (error) => {
-        log('error', `WebSocket error: ${error.message}`);
+        log('error', WebSocket error: ${error.message});
     });
 });
 
@@ -599,7 +573,7 @@ function broadcastToGame(gamePassword, data, excludeWs = null) {
                 try {
                     client.send(JSON.stringify(data));
                 } catch (error) {
-                    log('error', `Error broadcasting to client: ${error.message}`);
+                    log('error', Error broadcasting to client: ${error.message});
                 }
             }
         });
@@ -671,7 +645,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                                     powerUpType = 'speed';
                                 }
 
-                                const key = `${pos.x},${pos.y}`;
+                                const key = ${pos.x},${pos.y};
                                 game.powerUps.set(key, powerUpType);
                                 game.map[pos.y][pos.x] = 3; // Power-up tile
                                 newPowerUps.push({ x: pos.x, y: pos.y, type: powerUpType });
@@ -781,7 +755,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                     player.invincible = false;
                 });
 
-                log('info', `All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
+                log('info', All brick walls destroyed in game ${gamePassword}. Generating a new map.);
 
                 // Notify clients about the new map
                 broadcastToGame(gamePassword, {
@@ -791,11 +765,11 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                     powerUps: [] // Assuming no initial power-ups in new map
                 });
             }).catch(error => {
-                log('error', `Error generating new map: ${error.message}`);
+                log('error', Error generating new map: ${error.message});
             });
         }
     } catch (error) {
-        log('error', `Error during bomb explosion: ${error.message}`);
+        log('error', Error during bomb explosion: ${error.message});
     }
 }
 
@@ -815,16 +789,16 @@ function isAllBricksDestroyed(map) {
 app.get('/create-game', createGameLimiter, async (req, res, next) => {
     try {
         if (Object.keys(games).length >= MAX_ACTIVE_GAMES) {
-            log('warn', `Maximum active games (${MAX_ACTIVE_GAMES}) reached. Cannot create a new game.`);
+            log('warn', Maximum active games (${MAX_ACTIVE_GAMES}) reached. Cannot create a new game.);
             return res.status(429).json({ error: 'Too many active games. Please try again later.' });
         }
 
         const password = uuidv4();
         const protocol = req.headers['x-forwarded-proto'] || 'http';
         const host = req.headers.host;
-        const gameUrl = `${protocol}://${host}/game/${password}`;
+        const gameUrl = ${protocol}://${host}/game/${password};
 
-        log('info', `Creating new game with password: ${password}`);
+        log('info', Creating new game with password: ${password});
 
         const map = await createRandomMapWithRetries();
 
@@ -839,7 +813,7 @@ app.get('/create-game', createGameLimiter, async (req, res, next) => {
             powerUps: new Map(),
             timeout: setTimeout(() => {
                 if (Object.keys(games[password].players).length === 0) {
-                    log('info', `No players joined game ${password} within 5 minutes. Deleting game.`);
+                    log('info', No players joined game ${password} within 5 minutes. Deleting game.);
                     // Clear all bomb timeouts
                     games[password].bombs.forEach(bomb => {
                         if (bomb.timerId) clearTimeout(bomb.timerId);
@@ -848,10 +822,10 @@ app.get('/create-game', createGameLimiter, async (req, res, next) => {
                 }
             }, 300000) // 5 minutes in milliseconds
         };
-        log('info', `Game created with password: ${password}`);
+        log('info', Game created with password: ${password});
         res.json({ url: gameUrl });
     } catch (error) {
-        log('error', `Error creating game: ${error.message}`);
+        log('error', Error creating game: ${error.message});
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -876,14 +850,14 @@ function isWalkable(x, y, game) {
 
 // Global Express Error Handler
 app.use((err, req, res, next) => {
-    log('error', `Express Error: ${err.message}`);
+    log('error', Express Error: ${err.message});
     res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // Start the server and listen on all network interfaces
 server.listen(port, '0.0.0.0', () => {
-    log('info', `Server is running on port ${port}`);
-    log('info', `Accessible online at http://${getLocalIPAddress()}:${port}`);
+    log('info', Server is running on port ${port});
+    log('info', Accessible online at http://${getLocalIPAddress()}:${port});
 });
 
 // Function to get the local IP address of the server
@@ -919,11 +893,11 @@ process.on('SIGINT', gracefulShutdown);
 
 // Handle Uncaught Exceptions and Unhandled Rejections to prevent server crashes
 process.on('uncaughtException', (err) => {
-    log('error', `Uncaught Exception: ${err.message}`);
+    log('error', Uncaught Exception: ${err.message});
     gracefulShutdown();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    log('error', `Unhandled Rejection at: ${promise} reason: ${reason}`);
+    log('error', Unhandled Rejection at: ${promise} reason: ${reason});
     gracefulShutdown();
 });
