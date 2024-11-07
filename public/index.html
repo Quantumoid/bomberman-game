@@ -15,10 +15,10 @@
         body { 
             display: flex; 
             justify-content: center; 
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #020024, #090979, #00d4ff);
+            align-items: center; /* Center vertically */
+            height: 100vh; /* Full viewport height */
+            margin: 0; /* Remove default margin */
+            background: radial-gradient(circle at top left, #0f2027, #203a43, #2c5364); 
             font-family: 'Orbitron', sans-serif;
             overflow: hidden;
             position: relative;
@@ -27,43 +27,13 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 300%;
-            height: 300%;
-            background: url('/space_background.jpg') no-repeat center center;
-            background-size: cover;
-            z-index: -3;
-            animation: zoomBackground 60s linear infinite;
-        }
-        @keyframes zoomBackground {
-            from { transform: scale(1); }
-            to { transform: scale(1.2); }
-        }
-        #background-stars {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            width: 200%;
+            height: 200%;
             background: transparent;
             z-index: -2;
-            pointer-events: none;
             overflow: hidden;
         }
-        .star {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: white;
-            border-radius: 50%;
-            opacity: 0.8;
-            animation: twinkle 5s infinite;
-        }
-        @keyframes twinkle {
-            0%, 100% { opacity: 0.8; }
-            50% { opacity: 0.3; }
-        }
-        /* Generate stars */
-        #background-stars::before {
+        #background-universe::before, #background-universe::after {
             content: '';
             position: absolute;
             top: 0;
@@ -71,37 +41,23 @@
             width: 200%;
             height: 200%;
             background: transparent;
-            box-shadow: 
-                10px 20px white, 50px 80px white, 100px 150px white,
-                200px 300px white, 350px 420px white, 400px 500px white,
-                600px 700px white, 750px 820px white, 900px 950px white,
-                1100px 1200px white, 1300px 1400px white, 1500px 1600px white,
-                1700px 1800px white, 1900px 2000px white;
-            animation: moveStars 100s linear infinite;
+            background-image: radial-gradient(white 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+            animation: moveStars1 100s linear infinite;
         }
-        #background-stars::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 200%;
-            height: 200%;
-            background: transparent;
-            box-shadow: 
-                15px 25px white, 55px 85px white, 105px 155px white,
-                205px 305px white, 355px 425px white, 405px 505px white,
-                605px 705px white, 755px 825px white, 905px 955px white,
-                1105px 1210px white, 1310px 1410px white, 1510px 1610px white,
-                1710px 1810px white, 1910px 2010px white;
-            animation: moveStarsReverse 150s linear infinite;
+        #background-universe::after {
+            background-size: 100px 100px;
+            opacity: 0.2;
+            animation: moveStars2 150s linear infinite;
         }
-        @keyframes moveStars {
+        @keyframes moveStars1 {
             from { transform: translate(0, 0); }
             to { transform: translate(-50%, -50%); }
         }
-        @keyframes moveStarsReverse {
+        @keyframes moveStars2 {
             from { transform: translate(0, 0); }
-            to { transform: translate(50%, 50%); }
+            to { transform: translate(-100%, -100%); }
         }
         #game-container { 
             display: flex; 
@@ -109,84 +65,75 @@
             align-items: flex-start;
             width: 100%;
             height: 100%;
-            padding: 30px;
+            padding: 20px;
             box-sizing: border-box;
             position: relative;
             z-index: 1;
-            justify-content: center;
-            gap: 30px;
         }
         #chat-container {
             display: flex;
             flex-direction: column;
-            width: 300px;
+            width: 250px;
             max-width: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            border: 3px solid #00ffff;
-            border-radius: 20px;
-            padding: 25px;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            margin-right: 20px;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
             color: #00ffff;
-            height: 650px;
-            backdrop-filter: blur(10px);
+            height: 600px;
+            flex-direction: column;
         }
         #chat-container h2 {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             text-align: center;
             color: #00ffff;
             font-family: 'Orbitron', sans-serif;
-            text-shadow: 0 0 15px #00ffff;
+            text-shadow: 0 0 10px #00ffff;
         }
         #chat-messages {
             flex: 1;
             overflow-y: auto;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         .chat-message {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 10px;
-            font-size: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            font-size: 12px;
             color: #00ffff;
-            text-shadow: 0 0 7px #00ffff;
-            animation: fadeInChat 0.5s ease-in-out;
-        }
-        @keyframes fadeInChat {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            text-shadow: 0 0 5px #00ffff;
         }
         .chat-message .nickname {
-            color: #ff69b4;
+            color: #ff69b4; /* Pink color for nickname */
             font-weight: bold;
         }
         #chat-input-container {
             display: flex;
-            gap: 15px;
+            gap: 10px;
         }
         #chat-input {
             flex: 1;
-            padding: 12px;
+            padding: 10px;
             border: none;
-            border-radius: 10px;
-            font-size: 14px;
+            border-radius: 8px;
+            font-size: 12px;
             outline: none;
-            background: rgba(255, 255, 255, 0.1);
-            color: #00ffff;
-            box-shadow: 0 0 10px rgba(0,255,255,0.7);
-            backdrop-filter: blur(5px);
+            box-shadow: 0 0 5px rgba(0,255,255,0.5);
+            maxlength: 100;
         }
         #chat-send {
-            padding: 12px 20px;
+            padding: 10px 15px;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             background-color: #00ffff;
             color: #000;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 0 10px rgba(0,255,255,0.7);
-            backdrop-filter: blur(5px);
+            box-shadow: 0 0 5px rgba(0,255,255,0.5);
         }
         #chat-send:hover {
             background-color: #00cccc;
@@ -198,19 +145,18 @@
             align-items: center; 
             flex: 1;
             position: relative;
-            perspective: 1000px;
         }
         #game { 
             display: grid;
             grid-template-columns: repeat(15, 50px);
             grid-template-rows: repeat(15, 50px);
-            gap: 3px;
-            width: 800px;
-            height: 800px;
-            background-color: #0d0d0d;
+            gap: 2px;
+            width: 770px;
+            height: 770px;
+            background-color: #000;
             position: relative;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
-            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            border-radius: 10px;
         }
         /* Define the cell styles */
         .cell {
@@ -219,96 +165,83 @@
             position: relative;
             background-size: cover;
             background-position: center;
-            border-radius: 8px;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: inset 0 0 10px rgba(255,255,255,0.1);
+            border-radius: 5px;
+            transition: transform 0.2s;
         }
 
         .empty-space { 
-            background-color: #1a1a1a; 
-            box-shadow: inset 0 0 10px #333;
+            background-color: #0D47A1; 
+            box-shadow: inset 0 0 5px #2196F3;
         }
 
         /* Brick walls and indestructible walls */
         .brick-wall {
             background-image: url('/brick_wall_texture.png');
             background-size: cover;
-            animation: pulsateBrick 3s infinite;
-        }
-        @keyframes pulsateBrick {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            animation: pulsate 2s infinite;
         }
         .indestructible-wall {
-            background-color: #004d00;
-            box-shadow: 0 0 15px #00FF99;
-            animation: rotateWall 6s linear infinite;
+            background-color: #013220;
+            box-shadow: 0 0 10px #00FF99;
+            animation: rotateWall 4s linear infinite;
         }
 
         /* Power-up icons will be images inside the cell */
         .power-up-icon {
             position: absolute;
-            width: 35px;
-            height: 35px;
-            top: 7.5px;
-            left: 7.5px;
+            width: 30px; /* Adjust size as needed */
+            height: 30px;
+            top: 10px; /* Center vertically */
+            left: 10px; /* Center horizontally */
             z-index: 1;
-            pointer-events: none;
-            animation: glowPowerUp 2s ease-in-out infinite alternate;
-        }
-        @keyframes glowPowerUp {
-            from { filter: brightness(1); }
-            to { filter: brightness(1.5); }
+            pointer-events: none; /* So clicks pass through */
+            animation: glow 1.5s ease-in-out infinite alternate;
         }
 
         /* Adjust player image size and positioning */
         .player {
             position: absolute;
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             z-index: 2;
-            top: 2.5px;
-            left: 2.5px;
+            top: 5px;
+            left: 5px;
             transition: transform 0.1s;
-            filter: drop-shadow(0 0 15px #00ffff);
-            animation: floatPlayer 3s ease-in-out infinite;
-        }
-        @keyframes floatPlayer {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-5px); }
+            filter: drop-shadow(0 0 10px #00ffff);
         }
 
         /* Player name above head */
         .player-name {
             position: absolute;
-            top: -22px;
+            top: -18px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.6);
+            background: transparent;
             color: #00ffff;
-            padding: 3px 7px;
-            border-radius: 7px;
-            font-size: 14px;
+            padding: 2px 5px;
+            border-radius: 5px;
+            font-size: 12px;
             white-space: nowrap;
             pointer-events: none;
-            text-shadow: 0 0 7px #00ffff;
+            text-shadow: 0 0 5px #00ffff;
             z-index: 3;
             transition: text-shadow 0.3s, color 0.3s;
         }
 
         .player-name.first-place {
             color: gold;
-            text-shadow: 0 0 15px gold, 0 0 25px gold, 0 0 35px gold;
+            text-shadow: 0 0 10px gold, 0 0 20px gold, 0 0 30px gold;
         }
 
         /* Flash effect when player is hit */
         .player.hit {
-            animation: flashRed 1s;
+            animation: flash-red 5s;
         }
-        @keyframes flashRed {
-            0% { filter: brightness(1); }
-            50% { filter: brightness(0.5) sepia(1) hue-rotate(-50deg); }
-            100% { filter: brightness(1); }
+
+        @keyframes flash-red {
+            0% { filter: brightness(100%); }
+            50% { filter: brightness(50%) sepia(100%) hue-rotate(-50deg); }
+            100% { filter: brightness(100%); }
         }
 
         /* Explosion effect */
@@ -318,69 +251,66 @@
             left: 0;
             width: 50px;
             height: 50px;
-            background-image: url('/explosion_sprite.png');
+            background-image: url('/explosion_sprite.png'); /* Ensure this sprite exists */
             background-size: cover;
             background-position: center;
-            z-index: 4;
-            opacity: 0.8;
-            pointer-events: none;
-            animation: explode 1.5s forwards;
+            z-index: 3; /* Ensure it's above other elements */
+            opacity: 0.7; /* Add transparency */
+            pointer-events: none; /* Allow clicks to pass through */
+            animation: explode 1s forwards;
         }
+
         @keyframes explode {
             0% { opacity: 0; transform: scale(0.5); }
-            50% { opacity: 1; transform: scale(1.5); }
-            100% { opacity: 0; transform: scale(2); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(1.5); }
         }
 
         /* Bomb image size and positioning */
         .bomb {
             position: absolute;
-            width: 50px;
-            height: 50px;
+            width: 45px; /* Make the bomb larger than the player */
+            height: 45px;
             z-index: 1;
-            top: 0px;
-            left: 0px;
-            animation: blinkBomb 1.5s infinite;
+            top: 2.5px; /* Center the bomb vertically */
+            left: 2.5px; /* Center the bomb horizontally */
+            animation: blinkBomb 1s infinite;
         }
+
         @keyframes blinkBomb {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+            50% { opacity: 0.5; }
         }
 
         #status {
-            margin-top: 15px;
-            font-size: 20px;
+            margin-top: 10px;
+            font-size: 18px;
             color: #00ffff;
-            text-shadow: 0 0 15px #00ffff;
-            animation: pulseStatus 2s infinite;
-        }
-        @keyframes pulseStatus {
-            0%, 100% { text-shadow: 0 0 15px #00ffff; }
-            50% { text-shadow: 0 0 25px #00ffff; }
+            text-shadow: 0 0 10px #00ffff;
         }
 
         /* Updated styles for the player list */
         #player-list {
-            background: rgba(0, 0, 0, 0.7);
-            border: 3px solid #00ffff;
-            padding: 25px;
-            border-radius: 20px;
-            width: 300px;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            border: 2px solid #00ffff;
+            padding: 20px;
+            border-radius: 15px;
+            width: 250px;
             max-width: 100%;
-            height: 650px;
+            height: 600px;
             overflow-y: auto;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
             color: #00ffff;
+            margin-left: 20px;
             display: flex;
             flex-direction: column;
-            backdrop-filter: blur(10px);
         }
         #player-list h2 {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             text-align: center;
             color: #00ffff;
             font-family: 'Orbitron', sans-serif;
-            text-shadow: 0 0 15px #00ffff;
+            text-shadow: 0 0 10px #00ffff;
         }
         #player-list ul {
             list-style-type: none;
@@ -389,58 +319,48 @@
             flex: 1;
         }
         #player-list li {
-            margin-bottom: 20px;
-            font-size: 18px;
+            margin-bottom: 15px;
+            font-size: 16px;
             display: flex;
             align-items: center;
             color: #ffffff;
-            text-shadow: 0 0 7px #00ffff;
-            animation: slideIn 0.5s ease-in-out;
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
+            text-shadow: 0 0 5px #00ffff;
         }
         #player-list li img.player-icon {
-            width: 35px;
-            height: 35px;
-            margin-right: 10px;
-            filter: drop-shadow(0 0 7px #00ffff);
+            width: 30px; /* Adjust size of player icon */
+            height: 30px;
+            margin-right: 5px;
+            filter: drop-shadow(0 0 5px #00ffff);
         }
         #player-list li img.trophy {
-            width: 45px;
-            height: 45px;
-            margin-left: 10px;
-            animation: rotateTrophy 4s linear infinite;
-        }
-        @keyframes rotateTrophy {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            width: 40px;
+            height: 40px;
+            margin-left: 5px;
         }
 
         /* Styles for the message container and messages */
         #message-container {
-            margin-top: 15px;
+            margin-top: 10px;
             width: 100%;
             text-align: left;
             position: relative;
-            max-height: 180px;
+            max-height: 150px;
             overflow-y: auto;
             flex: 0 0 auto;
         }
         .game-message {
             display: block;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 10px;
-            animation: fadeoutMessage 6s forwards;
-            font-size: 16px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 8px;
+            animation: fadeout 5s forwards;
+            font-size: 14px;
             color: #00ffff;
-            text-shadow: 0 0 7px #00ffff;
+            text-shadow: 0 0 5px #00ffff;
             backdrop-filter: blur(5px);
         }
-        @keyframes fadeoutMessage {
+        @keyframes fadeout {
             0% { opacity: 1; transform: translateY(0); }
             80% { opacity: 1; transform: translateY(-10px); }
             100% { opacity: 0; transform: translateY(-20px); }
@@ -448,23 +368,25 @@
 
         /* Optional: Enhanced styling for hit messages */
         .game-message.hit-message {
-            background: rgba(255, 0, 0, 0.8);
+            background: rgba(255, 0, 0, 0.8); /* Semi-transparent red background */
             color: #fff;
             font-weight: bold;
-            animation: shakeFade 6s forwards;
-            text-shadow: 0 0 15px #ff0000;
+            animation: shake 0.5s, fadeout 5s forwards;
+            text-shadow: 0 0 10px #ff0000;
         }
-        @keyframes shakeFade {
-            0% { opacity: 1; transform: translateX(0); }
-            10% { transform: translateX(-5px); }
-            20% { transform: translateX(5px); }
-            30% { transform: translateX(-5px); }
-            40% { transform: translateX(5px); }
-            50% { transform: translateX(-5px); }
-            60% { transform: translateX(5px); }
-            70% { transform: translateX(-5px); }
-            80% { opacity: 0.5; transform: translateX(0); }
-            100% { opacity: 0; transform: translateX(0); }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
         }
 
         /* Styles for the nickname overlay */
@@ -474,69 +396,73 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.95);
+            background: rgba(0,0,0,0.85);
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 1000;
+            z-index: 1000; /* Ensure it is on top */
             animation: fadeInOverlay 1s ease-in-out forwards;
         }
+
         @keyframes fadeInOverlay {
             from { opacity: 0; }
             to { opacity: 1; }
         }
+
         #nickname-prompt {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 40px;
-            border-radius: 25px;
+            background: linear-gradient(135deg, #1f4037, #99f2c8);
+            padding: 30px;
+            border-radius: 20px;
             text-align: center;
-            box-shadow: 0 0 40px rgba(0,255,255,0.7);
-            animation: zoomInPrompt 0.5s ease-in-out forwards;
+            box-shadow: 0 0 30px rgba(0,255,255,0.5);
+            animation: zoomIn 0.5s ease-in-out forwards;
         }
-        @keyframes zoomInPrompt {
+
+        @keyframes zoomIn {
             from { transform: scale(0.5); }
             to { transform: scale(1); }
         }
+
         #nickname-prompt h2 {
-            margin-bottom: 30px;
-            color: #00ffff;
+            margin-bottom: 25px;
+            color: #ffffff;
             font-family: 'Orbitron', sans-serif;
-            font-size: 32px;
-            text-shadow: 0 0 15px #00ffff;
+            font-size: 28px;
+            text-shadow: 0 0 10px #00ffff;
         }
+
         #nickname-prompt input {
-            width: 85%;
-            padding: 18px;
-            margin-bottom: 20px;
+            width: 80%;
+            padding: 15px;
+            margin-bottom: 15px;
             border: none;
-            border-radius: 12px;
-            font-size: 20px;
+            border-radius: 10px;
+            font-size: 18px;
             outline: none;
-            background: rgba(255, 255, 255, 0.1);
-            color: #00ffff;
-            box-shadow: 0 0 15px rgba(0,255,255,0.7);
-            backdrop-filter: blur(5px);
-            animation: glowInputField 2s ease-in-out infinite alternate;
+            box-shadow: 0 0 10px rgba(0,255,255,0.5);
+            animation: glowInput 2s ease-in-out infinite alternate;
         }
-        @keyframes glowInputField {
-            from { box-shadow: 0 0 10px rgba(0,255,255,0.5); }
-            to { box-shadow: 0 0 20px rgba(0,255,255,1); }
+
+        @keyframes glowInput {
+            from { box-shadow: 0 0 5px rgba(0,255,255,0.5); }
+            to { box-shadow: 0 0 15px rgba(0,255,255,1); }
         }
+
         #nickname-prompt button {
-            padding: 14px 30px;
+            padding: 12px 25px;
             border: none;
-            background-color: #00ffff;
+            background-color: #00ffff; /* Cyan background */
             color: #000;
-            border-radius: 12px;
-            font-size: 20px;
+            border-radius: 10px;
+            font-size: 18px;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 0 15px rgba(0,255,255,0.7);
-            backdrop-filter: blur(5px);
+            box-shadow: 0 0 10px rgba(0,255,255,0.5);
         }
+
         #nickname-prompt button:hover {
-            background-color: #00cccc;
-            transform: scale(1.07);
+            background-color: #00cccc; /* Darker cyan on hover */
+            transform: scale(1.05);
         }
 
         /* Connection Refused Error Overlay */
@@ -546,97 +472,93 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.95);
+            background: rgba(0, 0, 0, 0.85);
             display: none;
             justify-content: center;
             align-items: center;
-            z-index: 2000;
-            animation: fadeInError 0.5s ease-in-out forwards;
+            z-index: 2000; /* Higher than other overlays */
+            animation: fadeInOverlay 0.5s ease-in-out forwards;
         }
-        @keyframes fadeInError {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+
         #error-message-box {
-            background: rgba(0, 0, 0, 0.85);
-            padding: 50px;
-            border-radius: 25px;
+            background: linear-gradient(135deg, #1f4037, #99f2c8);
+            padding: 40px;
+            border-radius: 20px;
             text-align: center;
-            box-shadow: 0 0 40px rgba(0,255,255,0.7);
-            animation: zoomInError 0.5s ease-in-out forwards;
+            box-shadow: 0 0 30px rgba(0,255,255,0.5);
+            animation: zoomIn 0.5s ease-in-out forwards;
         }
-        @keyframes zoomInError {
-            from { transform: scale(0.5); }
-            to { transform: scale(1); }
-        }
+
         #error-message-box h2 {
-            margin-bottom: 25px;
-            color: #ff4d4d;
+            margin-bottom: 20px;
+            color: #ff4d4d; /* Red color for error */
             font-family: 'Orbitron', sans-serif;
-            font-size: 36px;
-            text-shadow: 0 0 15px #ff4d4d;
+            font-size: 32px;
+            text-shadow: 0 0 10px #ff4d4d;
         }
+
         #error-message-box p {
             color: #ffffff;
-            font-size: 20px;
-            text-shadow: 0 0 7px #00ffff;
+            font-size: 18px;
+            text-shadow: 0 0 5px #00ffff;
         }
+
         #error-message-box button {
-            margin-top: 25px;
-            padding: 14px 30px;
+            margin-top: 20px;
+            padding: 10px 20px;
             border: none;
             background-color: #00ffff;
             color: #000;
-            border-radius: 12px;
-            font-size: 18px;
+            border-radius: 8px;
+            font-size: 16px;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 0 10px rgba(0,255,255,0.7);
-            backdrop-filter: blur(5px);
+            box-shadow: 0 0 5px rgba(0,255,255,0.5);
         }
+
         #error-message-box button:hover {
             background-color: #00cccc;
-            transform: scale(1.07);
+            transform: scale(1.05);
         }
 
         /* Responsive Design */
         @media (max-width: 1200px) {
             #game {
-                grid-template-columns: repeat(15, 45px);
-                grid-template-rows: repeat(15, 45px);
-                width: 675px;
-                height: 675px;
+                grid-template-columns: repeat(15, 40px);
+                grid-template-rows: repeat(15, 40px);
+                width: 620px;
+                height: 620px;
             }
             .cell {
-                width: 45px;
-                height: 45px;
-            }
-            .player {
-                width: 38px;
-                height: 38px;
-            }
-            .bomb {
                 width: 40px;
                 height: 40px;
             }
+            .player {
+                width: 32px;
+                height: 32px;
+            }
+            .bomb {
+                width: 36px;
+                height: 36px;
+            }
             #player-list {
-                width: 250px;
-                padding: 20px;
+                width: 200px;
+                padding: 15px;
             }
             #nickname-prompt {
-                padding: 30px;
+                padding: 20px;
             }
             #nickname-prompt h2 {
-                font-size: 28px;
+                font-size: 24px;
             }
             #nickname-prompt input {
                 width: 90%;
-                padding: 15px;
-                font-size: 18px;
+                padding: 12px;
+                font-size: 16px;
             }
             #nickname-prompt button {
-                padding: 12px 25px;
-                font-size: 18px;
+                padding: 10px 20px;
+                font-size: 16px;
             }
         }
 
@@ -644,47 +566,47 @@
             #game-container {
                 flex-direction: column;
                 align-items: center;
-                padding: 15px;
+                padding: 10px;
             }
             #game {
-                grid-template-columns: repeat(15, 35px);
-                grid-template-rows: repeat(15, 35px);
-                width: 525px;
-                height: 525px;
+                grid-template-columns: repeat(15, 30px);
+                grid-template-rows: repeat(15, 30px);
+                width: 470px;
+                height: 470px;
             }
             .cell {
-                width: 35px;
-                height: 35px;
+                width: 30px;
+                height: 30px;
             }
             .player {
-                width: 28px;
-                height: 28px;
+                width: 24px;
+                height: 24px;
             }
             .bomb {
-                width: 32px;
-                height: 32px;
+                width: 27px;
+                height: 27px;
             }
             #player-list {
                 width: 100%;
                 margin-left: 0;
-                margin-top: 25px;
-                height: 450px;
+                margin-top: 20px;
+                height: 400px;
             }
             #chat-container {
                 width: 100%;
                 margin-right: 0;
-                margin-bottom: 25px;
-                height: 350px;
+                margin-bottom: 20px;
+                height: 300px;
             }
             #status {
-                font-size: 18px;
+                font-size: 16px;
             }
         }
         
         /* Futuristic Glowing Text */
         .glow-text {
             color: #00ffff;
-            text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffff, 0 0 35px #00ffff, 0 0 45px #00ffff;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff;
             font-family: 'Orbitron', sans-serif;
         }
 
@@ -702,7 +624,6 @@
 <body>
 
 <div id="background-universe"></div>
-<div id="background-stars"></div>
 
 <div id="game-container">
     <div id="chat-container">
@@ -1118,7 +1039,276 @@
         cell.appendChild(explosionElement);
         setTimeout(() => {
             explosionElement.remove();
-        }, 1500);
+        }, 1000);
+    }
+
+    function updatePlayerList(playersData) {
+        if (!playersData || typeof playersData !== 'object') {
+            console.error("Invalid playersData:", playersData);
+            return;
+        }
+
+        const playersArray = Object.entries(playersData).map(([pid, player]) => ({ id: pid, ...player }));
+        // Sort players by score descending
+        playersArray.sort((a, b) => b.score - a.score);
+
+        const currentPlayerIds = new Set(playersArray.map(player => player.id));
+        const existingPlayerIds = new Set(Array.from(playerListElement.querySelectorAll('li')).map(li => li.getAttribute('data-player-id')));
+
+        // Remove players not in the new list
+        existingPlayerIds.forEach(pid => {
+            if (!currentPlayerIds.has(pid)) {
+                removePlayerListItem(pid);
+            }
+        });
+
+        // Add or update players
+        playersArray.forEach(player => {
+            addOrUpdatePlayerListItem(player);
+        });
+
+        // Update first place
+        // Remove 'first-place' from the previous first player
+        if (firstPlaceId) {
+            const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
+            if (previousFirstPlayerName) {
+                previousFirstPlayerName.classList.remove('first-place');
+            }
+        }
+
+        // Update first place player
+        const firstPlayer = playersArray[0];
+        if (firstPlayer) {
+            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
+            if (newFirstPlayerName) {
+                newFirstPlayerName.classList.add('first-place');
+            }
+            firstPlaceId = firstPlayer.id;
+        }
+
+        // Reorder the list to match the sorted players
+        playersArray.forEach((player, index) => {
+            const listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+            if (listItem && playerListElement.children[index] !== listItem) {
+                playerListElement.insertBefore(listItem, playerListElement.children[index]);
+            }
+        });
+    }
+
+    function updatePlayerPosition(pid, x, y, direction = 'down') {
+        if (!players[pid]) {
+            players[pid] = {};
+        }
+
+        // Remove existing player sprite and name from cache
+        if (playerElements[pid]) {
+            playerElements[pid].image.remove();
+            playerElements[pid].name.remove();
+        }
+
+        // Calculate the index in the grid
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+
+        if (!cell) {
+            console.error(`Cell at index ${index} is undefined. x: ${x}, y: ${y}`);
+            return;
+        }
+
+        // Map 'ArrowUp' to 'up', etc.
+        const directionMap = {
+            'ArrowUp': 'up',
+            'ArrowDown': 'down',
+            'ArrowLeft': 'left',
+            'ArrowRight': 'right'
+        };
+
+        const mappedDirection = directionMap[direction] || direction;
+
+        const playerElement = document.createElement('img');
+        // Use the mapped image name
+        const imageName = playerImages[pid] ? playerImages[pid] : 'default_player';
+        playerElement.src = `/${imageName}_${mappedDirection}.png`;
+        playerElement.classList.add('player', pid, 'glow-text');
+        cell.appendChild(playerElement);
+
+        // Add player name
+        const playerName = document.createElement('div');
+        playerName.classList.add('player-name', `${pid}-name`);
+        playerName.textContent = players[pid].nickname || `Player ${players[pid].playerNumber || pid}`;
+        cell.appendChild(playerName);
+
+        // If this player is first place, add the 'first-place' class
+        if (pid === firstPlaceId) {
+            playerName.classList.add('first-place');
+        }
+
+        // Cache the player elements
+        playerElements[pid] = {
+            image: playerElement,
+            name: playerName
+        };
+
+        // Update local player state
+        players[pid].x = x;
+        players[pid].y = y;
+        players[pid].direction = mappedDirection;
+    }
+
+    function removePlayer(pid) {
+        if (playerElements[pid]) {
+            playerElements[pid].image.remove();
+            playerElements[pid].name.remove();
+            delete playerElements[pid];
+        }
+        delete players[pid];
+    }
+
+    function placeBomb(x, y) {
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+
+        if (!cell) {
+            console.error(`Cell at index ${index} is undefined. x: ${x}, y: ${y}`);
+            return;
+        }
+
+        const bombElement = document.createElement('img');
+        bombElement.src = '/bomb_sprite.png';
+        bombElement.classList.add('bomb', 'glow-text');
+        cell.appendChild(bombElement);
+    }
+
+    function explodeBomb(x, y, destroyedBricks, newPowerUps, explosionPositions) {
+        // Remove bomb sprite at the center
+        const index = y * 15 + x;
+        const cell = gameElement.children[index];
+        const bombElement = cell.querySelector('.bomb');
+        if (bombElement) {
+            bombElement.remove();
+        }
+
+        // Play bomb explosion sound
+        const bombExplosionSound = document.getElementById('bomb-explosion-sound');
+        if (bombExplosionSound) {
+            bombExplosionSound.currentTime = 0; // Rewind to start
+            bombExplosionSound.play();
+        }
+
+        // Display explosion effect in all positions
+        explosionPositions.forEach(pos => {
+            const idx = pos.y * 15 + pos.x;
+            const explosionCell = gameElement.children[idx];
+
+            if (!explosionCell) {
+                console.error(`Cell at index ${idx} is undefined. x: ${pos.x}, y: ${pos.y}`);
+                return;
+            }
+
+            // Display explosion effect
+            displayExplosion(explosionCell);
+
+            // If the tile was a brick wall, update it
+            if (map[pos.y][pos.x] === 1) {
+                map[pos.y][pos.x] = 0;
+                explosionCell.classList.remove('brick-wall');
+                explosionCell.classList.add('empty-space');
+            }
+
+            // Remove bomb sprites in the explosion area
+            const bombInCell = explosionCell.querySelector('.bomb');
+            if (bombInCell) {
+                bombInCell.remove();
+            }
+        });
+
+        // Handle new power-ups
+        newPowerUps.forEach(powerUp => {
+            const idx = powerUp.y * 15 + powerUp.x;
+            const powerUpCell = gameElement.children[idx];
+            const powerUpKey = `${powerUp.x},${powerUp.y}`;
+            powerUps[powerUpKey] = powerUp.type; // Update powerUps object
+            map[powerUp.y][powerUp.x] = 0; // Update map array
+
+            // Remove any existing classes (e.g., empty-space)
+            powerUpCell.className = 'cell empty-space';
+
+            // Create an img element for the power-up icon
+            const powerUpElement = document.createElement('img');
+            powerUpElement.classList.add('power-up-icon');
+
+            if (powerUp.type === 'bombCapacity') {
+                powerUpElement.src = '/power_up_max_bombs.png';
+            } else if (powerUp.type === 'blastRadius') {
+                powerUpElement.src = '/power_up_extra_blast_radius.png';
+            } else if (powerUp.type === 'speed') {
+                powerUpElement.src = '/speed_powerup.png';
+            }
+
+            powerUpCell.appendChild(powerUpElement);
+        });
+    }
+
+    function displayExplosion(cell) {
+        const explosionElement = document.createElement('div');
+        explosionElement.classList.add('explosion-effect');
+        cell.appendChild(explosionElement);
+        setTimeout(() => {
+            explosionElement.remove();
+        }, 1000);
+    }
+
+    function updatePlayerList(playersData) {
+        if (!playersData || typeof playersData !== 'object') {
+            console.error("Invalid playersData:", playersData);
+            return;
+        }
+
+        const playersArray = Object.entries(playersData).map(([pid, player]) => ({ id: pid, ...player }));
+        // Sort players by score descending
+        playersArray.sort((a, b) => b.score - a.score);
+
+        const currentPlayerIds = new Set(playersArray.map(player => player.id));
+        const existingPlayerIds = new Set(Array.from(playerListElement.querySelectorAll('li')).map(li => li.getAttribute('data-player-id')));
+
+        // Remove players not in the new list
+        existingPlayerIds.forEach(pid => {
+            if (!currentPlayerIds.has(pid)) {
+                removePlayerListItem(pid);
+            }
+        });
+
+        // Add or update players
+        playersArray.forEach(player => {
+            addOrUpdatePlayerListItem(player);
+        });
+
+        // Update first place
+        // Remove 'first-place' from the previous first player
+        if (firstPlaceId) {
+            const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
+            if (previousFirstPlayerName) {
+                previousFirstPlayerName.classList.remove('first-place');
+            }
+        }
+
+        // Update first place player
+        const firstPlayer = playersArray[0];
+        if (firstPlayer) {
+            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
+            if (newFirstPlayerName) {
+                newFirstPlayerName.classList.add('first-place');
+            }
+            firstPlaceId = firstPlayer.id;
+        }
+
+        // Reorder the list to match the sorted players
+        playersArray.forEach((player, index) => {
+            const listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+            if (listItem && playerListElement.children[index] !== listItem) {
+                playerListElement.insertBefore(listItem, playerListElement.children[index]);
+            }
+        });
     }
 
     function startMovement() {
@@ -1183,16 +1373,19 @@
         const messageContainer = document.getElementById('message-container');
         const messageElement = document.createElement('div');
         messageElement.classList.add('game-message');
-
-        const nicknameSpan = document.createElement('span');
-        nicknameSpan.classList.add('nickname');
-        nicknameSpan.textContent = `${text.includes('You') ? 'You' : 'Player'}: `;
-
-        messageElement.appendChild(nicknameSpan);
-        messageElement.appendChild(document.createTextNode(text));
-
+        messageElement.textContent = text;
+        
+        // Add a special class for hit messages
+        if (text.includes('hit') || text.includes('blew yourself up')) {
+            messageElement.classList.add('hit-message');
+        }
+        
         messageContainer.appendChild(messageElement);
-        messageContainer.scrollTop = messageContainer.scrollHeight;
+        
+        // Remove the message after some time
+        setTimeout(() => {
+            messageElement.remove();
+        }, 5000); // Display message for 5 seconds
     }
 
     function showErrorOverlay() {
@@ -1517,7 +1710,7 @@
             playerElement.classList.add('hit');
 
             // Add a glow effect
-            playerElement.style.boxShadow = '0 0 25px rgba(255, 0, 0, 0.7)';
+            playerElement.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.7)';
         
             // Listen for the end of the animation to remove the 'hit' class and glow
             playerElement.addEventListener('animationend', () => {
@@ -1539,10 +1732,10 @@
                 hitSound.play();
             }
         
-            // Remove the explosion element after the animation completes (e.g., 1.5s)
+            // Remove the explosion element after the animation completes (e.g., 1s)
             setTimeout(() => {
                 explosion.remove();
-            }, 1500);
+            }, 1000);
         }
 
     } // Close joinGame function
