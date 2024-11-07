@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Bomberman Game</title>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' 'unsafe-inline';
@@ -253,7 +253,7 @@
 
         /* Updated styles for the player list */
         #player-list {
-            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            background: linear-gradient(135deg, #0f4037, #99f2c8);
             border: 2px solid #00ffff;
             padding: 20px;
             border-radius: 15px;
@@ -427,6 +427,62 @@
             transform: scale(1.05);
         }
 
+        /* Connection Refused Error Overlay */
+        #error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000; /* Higher than other overlays */
+            animation: fadeInOverlay 0.5s ease-in-out forwards;
+        }
+
+        #error-message-box {
+            background: linear-gradient(135deg, #1f4037, #99f2c8);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0,255,255,0.5);
+            animation: zoomIn 0.5s ease-in-out forwards;
+        }
+
+        #error-message-box h2 {
+            margin-bottom: 20px;
+            color: #ff4d4d; /* Red color for error */
+            font-family: 'Orbitron', sans-serif;
+            font-size: 32px;
+            text-shadow: 0 0 10px #ff4d4d;
+        }
+
+        #error-message-box p {
+            color: #ffffff;
+            font-size: 18px;
+            text-shadow: 0 0 5px #00ffff;
+        }
+
+        #error-message-box button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #00ffff;
+            color: #000;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 0 5px rgba(0,255,255,0.5);
+        }
+
+        #error-message-box button:hover {
+            background-color: #00cccc;
+            transform: scale(1.05);
+        }
+
         /* Responsive Design */
         @media (max-width: 1200px) {
             #game {
@@ -550,6 +606,15 @@
     </div>
 </div>
 
+<!-- Connection Refused Error Overlay -->
+<div id="error-overlay">
+    <div id="error-message-box">
+        <h2 class="glow-text">Connection Refused</h2>
+        <p class="glow-text">You already have an active game session open. Please close the other window to join a new game.</p>
+        <button id="error-retry">Retry</button>
+    </div>
+</div>
+
 <!-- Audio elements for sound effects -->
 <audio id="powerup-sound" src="/powerup_sound.mp3"></audio>
 <audio id="bomb-explosion-sound" src="/bomb_explosion.mp3"></audio>
@@ -568,13 +633,15 @@
     let ws;
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
-    const reconnectDelay = 1000;
+    const reconnectDelay = 3000; // 3 seconds
     const gameElement = document.getElementById('game');
     const statusElement = document.getElementById('status');
     const playerListElement = document.getElementById('players');
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const chatSend = document.getElementById('chat-send');
+    const errorOverlay = document.getElementById('error-overlay');
+    const errorRetryButton = document.getElementById('error-retry');
 
     let map = []; // Will be initialized from server
     let powerUps = {}; // Positions of power-ups
@@ -592,6 +659,8 @@
     let firstPlaceId = null;
 
     const playerElements = {}; // Cache for player DOM elements
+
+    let connectionRefused = false;
 
     function escapeHtml(unsafe) {
         return unsafe.replace(/[&<"'>]/g, function(m) {
@@ -903,7 +972,7 @@
             const powerUpCell = gameElement.children[idx];
             const powerUpKey = `${powerUp.x},${powerUp.y}`;
             powerUps[powerUpKey] = powerUp.type; // Update powerUps object
-            map[powerUp.y][powerUp.x] = 3; // Update map array
+            map[powerUp.y][powerUp.x] = 0; // Update map array
 
             // Remove any existing classes (e.g., empty-space)
             powerUpCell.className = 'cell empty-space';
@@ -1063,13 +1132,25 @@
         }, 5000); // Display message for 5 seconds
     }
 
+    function showErrorOverlay() {
+        errorOverlay.style.display = 'flex';
+    }
+
+    function hideErrorOverlay() {
+        errorOverlay.style.display = 'none';
+    }
+
     function joinGame() {
         // Extract password from URL
         const urlParts = window.location.pathname.split('/');
         password = urlParts[urlParts.length - 1];
 
-        // Generate a unique playerId
-        playerId = 'player-' + Math.random().toString(36).substr(2, 9);
+        // Retrieve or generate a unique playerId
+        playerId = localStorage.getItem('playerId');
+        if (!playerId) {
+            playerId = 'player-' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('playerId', playerId);
+        }
 
         if (ws && ws.readyState !== WebSocket.CLOSED) {
             ws.close();
@@ -1294,13 +1375,18 @@
         // Error handling for WebSocket
         ws.onerror = (error) => console.error("WebSocket error:", error);
 
-        ws.onclose = () => {
-            if (reconnectAttempts < maxReconnectAttempts) {
-                reconnectAttempts++;
-                setTimeout(joinGame, reconnectDelay * Math.pow(2, reconnectAttempts));
+        ws.onclose = (event) => {
+            if (event.code === 4001) { // Maximum connections per IP exceeded
+                connectionRefused = true;
+                showErrorOverlay();
             } else {
-                console.error("Max reconnection attempts reached.");
-                statusElement.textContent = "Connection lost. Unable to reconnect.";
+                if (reconnectAttempts < maxReconnectAttempts && !connectionRefused) {
+                    reconnectAttempts++;
+                    setTimeout(joinGame, reconnectDelay * Math.pow(2, reconnectAttempts));
+                } else {
+                    console.error("Max reconnection attempts reached.");
+                    statusElement.textContent = "Connection lost. Unable to reconnect.";
+                }
             }
         };
 
@@ -1348,6 +1434,14 @@
             if (event.key === 'Enter') {
                 chatSend.click();
             }
+        });
+
+        // Error Retry Button
+        errorRetryButton.addEventListener('click', () => {
+            hideErrorOverlay();
+            connectionRefused = false;
+            reconnectAttempts = 0;
+            joinGame();
         });
 
         // Function to trigger player hit effect

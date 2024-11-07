@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const rateLimit = require('express-rate-limit');
 const { Worker } = require('worker_threads');
+const MAX_CONNECTIONS_PER_IP = 2;
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -25,7 +26,7 @@ function log(level, message) {
 // General Rate Limiter to prevent abuse on all endpoints
 const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 1000, // limit each IP to 1000 requests per windowMs
+    max: 500, // limit each IP to 500 requests per windowMs
     message: 'Too many requests from this IP, please try again after a minute.',
 });
 
@@ -34,7 +35,7 @@ app.use(generalLimiter);
 // Specific Rate Limiter for /create-game to prevent abuse
 const createGameLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 20, // limit each IP to 20 create-game requests per windowMs
+    max: 22, // limit each IP to 22 create-game requests per windowMs
     message: 'Too many game creation requests from this IP, please try again after a minute.',
 });
 
@@ -249,14 +250,37 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // Increase server timeouts to prevent Render from marking it unhealthy
-server.keepAliveTimeout = 120000; // 2 minutes
-server.headersTimeout = 120000;    // 2 minutes
+server.keepAliveTimeout = 86400000; // 1 day in milliseconds
+server.headersTimeout = 86400000;   // 1 day in milliseconds
 
 // Store all active games
 const games = {};
 
+// Map to track number of connections per IP
+const ipConnections = new Map();
+
 // WebSocket connection handling
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+    // Gebruik het IP uit de X-Forwarded-For header of fallback naar remoteAddress
+    let ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    if (ip && ip.includes(',')) {
+        ip = ip.split(',')[0]; // Neem het eerste IP uit de lijst
+    }
+
+    log('info', `Nieuwe WebSocket-verbinding van IP: ${ip}`);
+
+    // Check if the IP has reached the connection limit
+    const currentConnections = ipConnections.get(ip) || 0;
+    if (currentConnections >= MAX_CONNECTIONS_PER_IP) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Maximum connections per IP exceeded.' }));
+        ws.close(4001, 'Maximum connections per IP exceeded.');
+        log('warn', `Connection from IP ${ip} rejected: maximum connections exceeded.`);
+        return;
+    }
+
+    // Increment the connection count for the IP
+    ipConnections.set(ip, currentConnections + 1);
+
     let playerId;
     let gamePassword;
 
@@ -271,7 +295,7 @@ wss.on('connection', (ws) => {
 
                 if (!gamePassword) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Invalid game password.' }));
-                    ws.close();
+                    ws.close(4002, 'Invalid game password.');
                     return;
                 }
 
@@ -279,7 +303,7 @@ wss.on('connection', (ws) => {
 
                 if (!game) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Game not found.' }));
-                    ws.close();
+                    ws.close(4003, 'Game not found.');
                     return;
                 }
 
@@ -289,7 +313,7 @@ wss.on('connection', (ws) => {
                 // Limit the number of players if necessary
                 if (playerNumber > playerStartingPositions.length) { // Match number of starting positions
                     ws.send(JSON.stringify({ type: 'error', message: 'Game is full.' }));
-                    ws.close();
+                    ws.close(4004, 'Game is full.');
                     return;
                 }
 
@@ -299,7 +323,7 @@ wss.on('connection', (ws) => {
                 // Validate initial position
                 if (!isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Invalid initial position.' }));
-                    ws.close();
+                    ws.close(4005, 'Invalid initial position.');
                     return;
                 }
 
@@ -513,6 +537,14 @@ wss.on('connection', (ws) => {
                     delete games[gamePassword];
                 }
             }
+        }
+
+        // Decrement the connection count for the IP
+        const currentConnections = ipConnections.get(ip) || 1;
+        if (currentConnections <= 1) {
+            ipConnections.delete(ip);
+        } else {
+            ipConnections.set(ip, currentConnections - 1);
         }
     });
 
