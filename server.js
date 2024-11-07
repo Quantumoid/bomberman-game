@@ -10,6 +10,9 @@ const { Worker } = require('worker_threads');
 const app = express();
 const port = process.env.PORT || 10000;
 
+// **Add the following line to trust the first proxy**
+app.set('trust proxy', true);
+
 // Maximum number of active games
 const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 22;
 
