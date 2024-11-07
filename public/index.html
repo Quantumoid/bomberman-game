@@ -23,26 +23,37 @@
             position: relative;
             background: #000;
         }
-        /* Enhanced Moving Nebula Background */
         #background-universe {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 400%;
+            height: 400%;
+            background: url('/space_background_highres.jpg') no-repeat center center;
+            background-size: cover;
+            z-index: -5;
+            animation: parallaxMove 120s linear infinite;
+        }
+        @keyframes parallaxMove {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-25%, -25%) scale(1.1); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+        #nebula {
             position: fixed;
             top: 0;
             left: 0;
             width: 200%;
             height: 200%;
-            background: radial-gradient(circle at 20% 30%, rgba(10, 10, 30, 0.8), transparent 70%),
-                        radial-gradient(circle at 80% 70%, rgba(30, 10, 50, 0.7), transparent 60%),
-                        radial-gradient(circle at 50% 50%, rgba(20, 40, 60, 0.6), transparent 80%);
-            background-size: 400% 400%;
-            animation: moveBackground 60s linear infinite;
+            background: url('/nebula_overlay.png') repeat;
+            opacity: 0.3;
             z-index: -4;
+            animation: nebulaTwirl 60s linear infinite;
         }
-        @keyframes moveBackground {
-            0% { background-position: 0% 0%; }
-            50% { background-position: 100% 100%; }
-            100% { background-position: 0% 0%; }
+        @keyframes nebulaTwirl {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
-        /* Enhanced Starfield */
         #background-stars {
             position: fixed;
             top: 0;
@@ -67,8 +78,24 @@
             0%, 100% { opacity: 0.8; }
             50% { opacity: 0.3; }
         }
-        /* Generate Stars with More Density and Variety */
-        #background-stars::before, #background-stars::after {
+        /* Generate stars */
+        #background-stars::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background: transparent;
+            box-shadow: 
+                10px 20px white, 50px 80px white, 100px 150px white,
+                200px 300px white, 350px 420px white, 400px 500px white,
+                600px 700px white, 750px 820px white, 900px 950px white,
+                1100px 1200px white, 1300px 1400px white, 1500px 1600px white,
+                1700px 1800px white, 1900px 2000px white;
+            animation: moveStars 100s linear infinite;
+        }
+        #background-stars::after {
             content: '';
             position: absolute;
             top: 0;
@@ -81,18 +108,7 @@
                 205px 305px white, 355px 425px white, 405px 505px white,
                 605px 705px white, 755px 825px white, 905px 955px white,
                 1105px 1210px white, 1310px 1410px white, 1510px 1610px white,
-                1710px 1810px white, 1910px 2010px white, 2200px 2300px white,
-                2400px 2500px white, 2600px 2700px white, 2800px 2900px white;
-            animation: moveStars 120s linear infinite;
-        }
-        #background-stars::after {
-            box-shadow: 
-                25px 35px white, 65px 95px white, 115px 165px white,
-                215px 315px white, 365px 435px white, 415px 515px white,
-                615px 715px white, 765px 835px white, 915px 975px white,
-                1115px 1220px white, 1320px 1420px white, 1520px 1620px white,
-                1720px 1820px white, 1920px 2020px white, 2205px 2305px white,
-                2405px 2505px white, 2605px 2705px white, 2805px 2905px white;
+                1710px 1810px white, 1910px 2010px white;
             animation: moveStarsReverse 150s linear infinite;
         }
         @keyframes moveStars {
@@ -103,26 +119,7 @@
             from { transform: translate(0, 0); }
             to { transform: translate(50%, 50%); }
         }
-        /* Nebula Particle Effects */
-        #nebula-particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 0, 150, 0.3), transparent 70%),
-                        radial-gradient(circle, rgba(0, 255, 255, 0.3), transparent 60%),
-                        radial-gradient(circle, rgba(255, 255, 0, 0.3), transparent 80%);
-            background-size: 400% 400%;
-            animation: nebulaMove 100s ease-in-out infinite;
-            z-index: -2;
-        }
-        @keyframes nebulaMove {
-            0% { background-position: 0% 0%; }
-            50% { background-position: 100% 100%; }
-            100% { background-position: 0% 0%; }
-        }
-        #game-container {
+        #game-container { 
             display: flex; 
             flex-direction: row; 
             align-items: flex-start;
@@ -134,27 +131,33 @@
             z-index: 1;
             justify-content: center;
             gap: 30px;
+            backdrop-filter: blur(10px);
         }
         #chat-container {
             display: flex;
             flex-direction: column;
             width: 300px;
             max-width: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.6);
             border: 3px solid #00ffff;
             border-radius: 20px;
             padding: 25px;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.7);
             color: #00ffff;
             height: 650px;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(15px);
+            animation: glowChat 3s infinite alternate;
+        }
+        @keyframes glowChat {
+            from { box-shadow: 0 0 20px rgba(0,255,255,0.5); }
+            to { box-shadow: 0 0 40px rgba(0,255,255,1); }
         }
         #chat-container h2 {
             margin-bottom: 25px;
             text-align: center;
             color: #00ffff;
             font-family: 'Orbitron', sans-serif;
-            text-shadow: 0 0 15px #00ffff;
+            text-shadow: 0 0 20px #00ffff;
         }
         #chat-messages {
             flex: 1;
@@ -162,13 +165,13 @@
             margin-bottom: 15px;
         }
         .chat-message {
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.7);
             padding: 10px;
             margin-bottom: 10px;
             border-radius: 10px;
             font-size: 14px;
             color: #00ffff;
-            text-shadow: 0 0 7px #00ffff;
+            text-shadow: 0 0 10px #00ffff;
             animation: fadeInChat 0.5s ease-in-out;
         }
         @keyframes fadeInChat {
@@ -192,8 +195,13 @@
             outline: none;
             background: rgba(255, 255, 255, 0.1);
             color: #00ffff;
-            box-shadow: 0 0 10px rgba(0,255,255,0.7);
+            box-shadow: 0 0 15px rgba(0,255,255,0.7);
             backdrop-filter: blur(5px);
+            animation: pulseInput 3s infinite alternate;
+        }
+        @keyframes pulseInput {
+            from { box-shadow: 0 0 10px rgba(0,255,255,0.5); }
+            to { box-shadow: 0 0 20px rgba(0,255,255,1); }
         }
         #chat-send {
             padding: 12px 20px;
@@ -204,8 +212,13 @@
             font-size: 16px;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 0 10px rgba(0,255,255,0.7);
+            box-shadow: 0 0 15px rgba(0,255,255,0.7);
             backdrop-filter: blur(5px);
+            animation: glowButton 3s infinite alternate;
+        }
+        @keyframes glowButton {
+            from { box-shadow: 0 0 10px rgba(0,255,255,0.5); }
+            to { box-shadow: 0 0 20px rgba(0,255,255,1); }
         }
         #chat-send:hover {
             background-color: #00cccc;
@@ -218,6 +231,11 @@
             flex: 1;
             position: relative;
             perspective: 1000px;
+            animation: rotateGameArea 20s linear infinite;
+        }
+        @keyframes rotateGameArea {
+            from { transform: rotateY(0deg); }
+            to { transform: rotateY(360deg); }
         }
         #game { 
             display: grid;
@@ -226,10 +244,16 @@
             gap: 3px;
             width: 800px;
             height: 800px;
-            background-color: #0d0d0d;
+            background-color: rgba(13, 13, 13, 0.9);
             position: relative;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.7);
             border-radius: 15px;
+            transform: rotateX(10deg);
+            animation: floatGame 5s ease-in-out infinite;
+        }
+        @keyframes floatGame {
+            0%, 100% { transform: translateY(0px) rotateX(10deg); }
+            50% { transform: translateY(-10px) rotateX(10deg); }
         }
         /* Define the cell styles */
         .cell {
@@ -240,17 +264,24 @@
             background-position: center;
             border-radius: 8px;
             transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: inset 0 0 10px rgba(255,255,255,0.1);
+            box-shadow: inset 0 0 20px rgba(255,255,255,0.1);
+            animation: shimmer 10s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
         .empty-space { 
-            background-color: #1a1a1a; 
-            box-shadow: inset 0 0 10px #333;
+            background-color: rgba(26, 26, 26, 0.8); 
+            box-shadow: inset 0 0 20px #333;
         }
 
         /* Brick walls and indestructible walls */
         .brick-wall {
-            background-image: linear-gradient(45deg, #8B0000, #A52A2A);
+            background-image: url('/brick_wall_texture_highres.png');
+            background-size: cover;
             animation: pulsateBrick 3s infinite;
         }
         @keyframes pulsateBrick {
@@ -258,8 +289,8 @@
             50% { transform: scale(1.05); }
         }
         .indestructible-wall {
-            background-color: #004d00;
-            box-shadow: 0 0 15px #00FF99;
+            background-color: rgba(0, 77, 0, 0.9);
+            box-shadow: 0 0 25px #00FF99;
             animation: rotateWall 6s linear infinite;
         }
 
@@ -288,7 +319,7 @@
             top: 2.5px;
             left: 2.5px;
             transition: transform 0.1s;
-            filter: drop-shadow(0 0 15px #00ffff);
+            filter: drop-shadow(0 0 20px #00ffff);
             animation: floatPlayer 3s ease-in-out infinite;
         }
         @keyframes floatPlayer {
@@ -299,24 +330,24 @@
         /* Player name above head */
         .player-name {
             position: absolute;
-            top: -22px;
+            top: -25px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.6);
             color: #00ffff;
-            padding: 3px 7px;
+            padding: 4px 8px;
             border-radius: 7px;
             font-size: 14px;
             white-space: nowrap;
             pointer-events: none;
-            text-shadow: 0 0 7px #00ffff;
+            text-shadow: 0 0 10px #00ffff;
             z-index: 3;
             transition: text-shadow 0.3s, color 0.3s;
         }
 
         .player-name.first-place {
             color: gold;
-            text-shadow: 0 0 15px gold, 0 0 25px gold, 0 0 35px gold;
+            text-shadow: 0 0 20px gold, 0 0 30px gold, 0 0 40px gold;
         }
 
         /* Flash effect when player is hit */
@@ -336,7 +367,9 @@
             left: 0;
             width: 50px;
             height: 50px;
-            background: radial-gradient(circle, rgba(255, 165, 0, 0.8), rgba(255, 69, 0, 0) 70%);
+            background-image: url('/explosion_sprite_highres.png');
+            background-size: cover;
+            background-position: center;
             z-index: 4;
             opacity: 0.8;
             pointer-events: none;
@@ -356,10 +389,6 @@
             z-index: 1;
             top: 0px;
             left: 0px;
-            background: radial-gradient(circle, #555, #222);
-            border: 2px solid #fff;
-            border-radius: 50%;
-            box-shadow: inset 0 0 10px #000, 0 0 10px #fff;
             animation: blinkBomb 1.5s infinite;
         }
         @keyframes blinkBomb {
@@ -371,17 +400,17 @@
             margin-top: 15px;
             font-size: 20px;
             color: #00ffff;
-            text-shadow: 0 0 15px #00ffff;
+            text-shadow: 0 0 20px #00ffff;
             animation: pulseStatus 2s infinite;
         }
         @keyframes pulseStatus {
-            0%, 100% { text-shadow: 0 0 15px #00ffff; }
-            50% { text-shadow: 0 0 25px #00ffff; }
+            0%, 100% { text-shadow: 0 0 20px #00ffff; }
+            50% { text-shadow: 0 0 30px #00ffff; }
         }
 
         /* Updated styles for the player list */
         #player-list {
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.6);
             border: 3px solid #00ffff;
             padding: 25px;
             border-radius: 20px;
@@ -389,18 +418,23 @@
             max-width: 100%;
             height: 650px;
             overflow-y: auto;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.7);
             color: #00ffff;
             display: flex;
             flex-direction: column;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(15px);
+            animation: glowPlayerList 3s infinite alternate;
+        }
+        @keyframes glowPlayerList {
+            from { box-shadow: 0 0 20px rgba(0,255,255,0.5); }
+            to { box-shadow: 0 0 40px rgba(0,255,255,1); }
         }
         #player-list h2 {
             margin-bottom: 25px;
             text-align: center;
             color: #00ffff;
             font-family: 'Orbitron', sans-serif;
-            text-shadow: 0 0 15px #00ffff;
+            text-shadow: 0 0 20px #00ffff;
         }
         #player-list ul {
             list-style-type: none;
@@ -414,7 +448,7 @@
             display: flex;
             align-items: center;
             color: #ffffff;
-            text-shadow: 0 0 7px #00ffff;
+            text-shadow: 0 0 10px #00ffff;
             animation: slideIn 0.5s ease-in-out;
         }
         @keyframes slideIn {
@@ -425,7 +459,7 @@
             width: 35px;
             height: 35px;
             margin-right: 10px;
-            filter: drop-shadow(0 0 7px #00ffff);
+            filter: drop-shadow(0 0 10px #00ffff);
         }
         #player-list li img.trophy {
             width: 45px;
@@ -450,14 +484,14 @@
         }
         .game-message {
             display: block;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.7);
             padding: 10px;
             margin: 10px 0;
             border-radius: 10px;
             animation: fadeoutMessage 6s forwards;
             font-size: 16px;
             color: #00ffff;
-            text-shadow: 0 0 7px #00ffff;
+            text-shadow: 0 0 10px #00ffff;
             backdrop-filter: blur(5px);
         }
         @keyframes fadeoutMessage {
@@ -472,7 +506,7 @@
             color: #fff;
             font-weight: bold;
             animation: shakeFade 6s forwards;
-            text-shadow: 0 0 15px #ff0000;
+            text-shadow: 0 0 20px #ff0000;
         }
         @keyframes shakeFade {
             0% { opacity: 1; transform: translateX(0); }
@@ -506,11 +540,11 @@
             to { opacity: 1; }
         }
         #nickname-prompt {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 40px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 50px;
             border-radius: 25px;
             text-align: center;
-            box-shadow: 0 0 40px rgba(0,255,255,0.7);
+            box-shadow: 0 0 60px rgba(0,255,255,0.7);
             animation: zoomInPrompt 0.5s ease-in-out forwards;
         }
         @keyframes zoomInPrompt {
@@ -521,8 +555,8 @@
             margin-bottom: 30px;
             color: #00ffff;
             font-family: 'Orbitron', sans-serif;
-            font-size: 32px;
-            text-shadow: 0 0 15px #00ffff;
+            font-size: 36px;
+            text-shadow: 0 0 20px #00ffff;
         }
         #nickname-prompt input {
             width: 85%;
@@ -534,16 +568,16 @@
             outline: none;
             background: rgba(255, 255, 255, 0.1);
             color: #00ffff;
-            box-shadow: 0 0 15px rgba(0,255,255,0.7);
+            box-shadow: 0 0 20px rgba(0,255,255,0.7);
             backdrop-filter: blur(5px);
             animation: glowInputField 2s ease-in-out infinite alternate;
         }
         @keyframes glowInputField {
-            from { box-shadow: 0 0 10px rgba(0,255,255,0.5); }
-            to { box-shadow: 0 0 20px rgba(0,255,255,1); }
+            from { box-shadow: 0 0 15px rgba(0,255,255,0.5); }
+            to { box-shadow: 0 0 25px rgba(0,255,255,1); }
         }
         #nickname-prompt button {
-            padding: 14px 30px;
+            padding: 18px 40px;
             border: none;
             background-color: #00ffff;
             color: #000;
@@ -551,8 +585,13 @@
             font-size: 20px;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 0 15px rgba(0,255,255,0.7);
+            box-shadow: 0 0 20px rgba(0,255,255,0.7);
             backdrop-filter: blur(5px);
+            animation: glowButtonPrompt 3s infinite alternate;
+        }
+        @keyframes glowButtonPrompt {
+            from { box-shadow: 0 0 15px rgba(0,255,255,0.5); }
+            to { box-shadow: 0 0 25px rgba(0,255,255,1); }
         }
         #nickname-prompt button:hover {
             background-color: #00cccc;
@@ -579,10 +618,10 @@
         }
         #error-message-box {
             background: rgba(0, 0, 0, 0.85);
-            padding: 50px;
+            padding: 60px;
             border-radius: 25px;
             text-align: center;
-            box-shadow: 0 0 40px rgba(0,255,255,0.7);
+            box-shadow: 0 0 60px rgba(0,255,255,0.7);
             animation: zoomInError 0.5s ease-in-out forwards;
         }
         @keyframes zoomInError {
@@ -593,26 +632,31 @@
             margin-bottom: 25px;
             color: #ff4d4d;
             font-family: 'Orbitron', sans-serif;
-            font-size: 36px;
-            text-shadow: 0 0 15px #ff4d4d;
+            font-size: 40px;
+            text-shadow: 0 0 20px #ff4d4d;
         }
         #error-message-box p {
             color: #ffffff;
-            font-size: 20px;
-            text-shadow: 0 0 7px #00ffff;
+            font-size: 22px;
+            text-shadow: 0 0 10px #00ffff;
         }
         #error-message-box button {
             margin-top: 25px;
-            padding: 14px 30px;
+            padding: 16px 35px;
             border: none;
             background-color: #00ffff;
             color: #000;
             border-radius: 12px;
-            font-size: 18px;
+            font-size: 20px;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 0 10px rgba(0,255,255,0.7);
+            box-shadow: 0 0 20px rgba(0,255,255,0.7);
             backdrop-filter: blur(5px);
+            animation: glowButtonError 3s infinite alternate;
+        }
+        @keyframes glowButtonError {
+            from { box-shadow: 0 0 15px rgba(0,255,255,0.5); }
+            to { box-shadow: 0 0 25px rgba(0,255,255,1); }
         }
         #error-message-box button:hover {
             background-color: #00cccc;
@@ -644,10 +688,10 @@
                 padding: 20px;
             }
             #nickname-prompt {
-                padding: 30px;
+                padding: 40px;
             }
             #nickname-prompt h2 {
-                font-size: 28px;
+                font-size: 32px;
             }
             #nickname-prompt input {
                 width: 90%;
@@ -655,7 +699,7 @@
                 font-size: 18px;
             }
             #nickname-prompt button {
-                padding: 12px 25px;
+                padding: 14px 30px;
                 font-size: 18px;
             }
         }
@@ -704,7 +748,7 @@
         /* Futuristic Glowing Text */
         .glow-text {
             color: #00ffff;
-            text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffff, 0 0 35px #00ffff, 0 0 45px #00ffff;
+            text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff, 0 0 50px #00ffff;
             font-family: 'Orbitron', sans-serif;
         }
 
@@ -722,7 +766,7 @@
 <body>
 
 <div id="background-universe"></div>
-<div id="nebula-particles"></div>
+<div id="nebula"></div>
 <div id="background-stars"></div>
 
 <div id="game-container">
@@ -1057,7 +1101,8 @@
             return;
         }
 
-        const bombElement = document.createElement('div');
+        const bombElement = document.createElement('img');
+        bombElement.src = '/bomb_sprite_highres.png';
         bombElement.classList.add('bomb', 'glow-text');
         cell.appendChild(bombElement);
     }
