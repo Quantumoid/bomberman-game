@@ -11,7 +11,7 @@ const app = express();
 const port = process.env.PORT || 10000;
 
 // **Add the following line to trust the first proxy**
-// app.set('trust proxy', 1);
+app.set('trust proxy', 1);
 
 // Maximum number of active games
 const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 22;
@@ -19,7 +19,7 @@ const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX
 // Simple Logger Function without Timestamp
 function log(level, message) {
     const levelUpper = level.toUpperCase();
-    console.log(`[${levelUpper}]: ${message}`);
+    console.log([${levelUpper}]: ${message});
 }
 
 // General Rate Limiter to prevent abuse on all endpoints
