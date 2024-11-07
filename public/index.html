@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Bomberman Game</title>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' 'unsafe-inline';
@@ -623,7 +623,7 @@
                     cell.classList.add('empty-space');
 
                     // Create an img element for the power-up
-                    const powerUpKey = `${col},${row}`;
+                    const powerUpKey = ${col},${row};
                     const powerUpType = powerUps[powerUpKey];
 
                     const powerUpElement = document.createElement('img');
@@ -661,7 +661,7 @@
     }
 
     function addOrUpdatePlayerListItem(player) {
-        let listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+        let listItem = playerListElement.querySelector(li[data-player-id="${player.id}"]);
         if (listItem) {
             updatePlayerListItem(player, listItem);
         } else {
@@ -678,8 +678,8 @@
 
         // Create player icon
         const playerIcon = document.createElement('img');
-        playerIcon.src = `/${playerImages[player.id] || 'default_player'}.png`;
-        playerIcon.alt = `Player ${player.playerNumber}`;
+        playerIcon.src = /${playerImages[player.id] || 'default_player'}.png;
+        playerIcon.alt = Player ${player.playerNumber};
         playerIcon.classList.add('player-icon');
         listItem.appendChild(playerIcon);
 
@@ -705,13 +705,13 @@
             listItem.appendChild(trophy);
         }
 
-        const safeNickname = escapeHtml(player.nickname || `Player ${player.playerNumber || player.id}`);
-        const textNode = document.createTextNode(` ${safeNickname}: ${player.score} points`);
+        const safeNickname = escapeHtml(player.nickname || Player ${player.playerNumber || player.id});
+        const textNode = document.createTextNode( ${safeNickname}: ${player.score} points);
         listItem.appendChild(textNode);
     }
 
     function removePlayerListItem(playerId) {
-        const listItem = playerListElement.querySelector(`li[data-player-id="${playerId}"]`);
+        const listItem = playerListElement.querySelector(li[data-player-id="${playerId}"]);
         if (listItem) {
             listItem.remove();
         }
@@ -745,7 +745,7 @@
         // Update first place
         // Remove 'first-place' from the previous first player
         if (firstPlaceId) {
-            const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
+            const previousFirstPlayerName = document.querySelector(.cell .${firstPlaceId}-name);
             if (previousFirstPlayerName) {
                 previousFirstPlayerName.classList.remove('first-place');
             }
@@ -754,7 +754,7 @@
         // Update first place player
         const firstPlayer = playersArray[0];
         if (firstPlayer) {
-            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
+            const newFirstPlayerName = document.querySelector(.cell .${firstPlayer.id}-name);
             if (newFirstPlayerName) {
                 newFirstPlayerName.classList.add('first-place');
             }
@@ -763,7 +763,7 @@
 
         // Reorder the list to match the sorted players
         playersArray.forEach((player, index) => {
-            const listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+            const listItem = playerListElement.querySelector(li[data-player-id="${player.id}"]);
             if (listItem && playerListElement.children[index] !== listItem) {
                 playerListElement.insertBefore(listItem, playerListElement.children[index]);
             }
@@ -786,7 +786,7 @@
         const cell = gameElement.children[index];
 
         if (!cell) {
-            console.error(`Cell at index ${index} is undefined. x: ${x}, y: ${y}`);
+            console.error(Cell at index ${index} is undefined. x: ${x}, y: ${y});
             return;
         }
 
@@ -803,14 +803,14 @@
         const playerElement = document.createElement('img');
         // Use the mapped image name
         const imageName = playerImages[pid] ? playerImages[pid] : 'default_player';
-        playerElement.src = `/${imageName}_${mappedDirection}.png`;
+        playerElement.src = /${imageName}_${mappedDirection}.png;
         playerElement.classList.add('player', pid, 'glow-text');
         cell.appendChild(playerElement);
 
         // Add player name
         const playerName = document.createElement('div');
-        playerName.classList.add('player-name', `${pid}-name`);
-        playerName.textContent = players[pid].nickname || `Player ${players[pid].playerNumber || pid}`;
+        playerName.classList.add('player-name', ${pid}-name);
+        playerName.textContent = players[pid].nickname || Player ${players[pid].playerNumber || pid};
         cell.appendChild(playerName);
 
         // If this player is first place, add the 'first-place' class
@@ -844,7 +844,7 @@
         const cell = gameElement.children[index];
 
         if (!cell) {
-            console.error(`Cell at index ${index} is undefined. x: ${x}, y: ${y}`);
+            console.error(Cell at index ${index} is undefined. x: ${x}, y: ${y});
             return;
         }
 
@@ -876,7 +876,7 @@
             const explosionCell = gameElement.children[idx];
 
             if (!explosionCell) {
-                console.error(`Cell at index ${idx} is undefined. x: ${pos.x}, y: ${pos.y}`);
+                console.error(Cell at index ${idx} is undefined. x: ${pos.x}, y: ${pos.y});
                 return;
             }
 
@@ -901,7 +901,7 @@
         newPowerUps.forEach(powerUp => {
             const idx = powerUp.y * 15 + powerUp.x;
             const powerUpCell = gameElement.children[idx];
-            const powerUpKey = `${powerUp.x},${powerUp.y}`;
+            const powerUpKey = ${powerUp.x},${powerUp.y};
             powerUps[powerUpKey] = powerUp.type; // Update powerUps object
             map[powerUp.y][powerUp.x] = 3; // Update map array
 
@@ -961,7 +961,7 @@
         // Update first place
         // Remove 'first-place' from the previous first player
         if (firstPlaceId) {
-            const previousFirstPlayerName = document.querySelector(`.cell .${firstPlaceId}-name`);
+            const previousFirstPlayerName = document.querySelector(.cell .${firstPlaceId}-name);
             if (previousFirstPlayerName) {
                 previousFirstPlayerName.classList.remove('first-place');
             }
@@ -970,7 +970,7 @@
         // Update first place player
         const firstPlayer = playersArray[0];
         if (firstPlayer) {
-            const newFirstPlayerName = document.querySelector(`.cell .${firstPlayer.id}-name`);
+            const newFirstPlayerName = document.querySelector(.cell .${firstPlayer.id}-name);
             if (newFirstPlayerName) {
                 newFirstPlayerName.classList.add('first-place');
             }
@@ -979,7 +979,7 @@
 
         // Reorder the list to match the sorted players
         playersArray.forEach((player, index) => {
-            const listItem = playerListElement.querySelector(`li[data-player-id="${player.id}"]`);
+            const listItem = playerListElement.querySelector(li[data-player-id="${player.id}"]);
             if (listItem && playerListElement.children[index] !== listItem) {
                 playerListElement.insertBefore(listItem, playerListElement.children[index]);
             }
@@ -1077,7 +1077,7 @@
 
         // Determine the correct WebSocket protocol
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        ws = new WebSocket(`${protocol}://${window.location.host}`);
+        ws = new WebSocket(${protocol}://${window.location.host});
         ws.onopen = () => {
             ws.send(JSON.stringify({ type: 'join', playerId: playerId, password: password, nickname: nickname }));
             reconnectAttempts = 0;
@@ -1089,7 +1089,7 @@
             if (message.type === 'start') {
                 // Store your player number
                 if (message.playerNumber) {
-                    const imageName = message.playerNumber ? `player${message.playerNumber}` : 'default_player';
+                    const imageName = message.playerNumber ? player${message.playerNumber} : 'default_player';
                     playerImages[playerId] = imageName;
                 }
 
@@ -1097,7 +1097,7 @@
                 map = message.map;
                 powerUps = {};
                 message.powerUps.forEach(powerUp => {
-                    const powerUpKey = `${powerUp.x},${powerUp.y}`;
+                    const powerUpKey = ${powerUp.x},${powerUp.y};
                     powerUps[powerUpKey] = powerUp.type;
                 });
                 initializeGameGrid();
@@ -1106,12 +1106,12 @@
                 for (const pid in message.players) {
                     const player = message.players[pid];
                     // Map other players' IDs to image names
-                    const imageName = player.playerNumber ? `player${player.playerNumber}` : 'default_player';
+                    const imageName = player.playerNumber ? player${player.playerNumber} : 'default_player';
                     playerImages[pid] = imageName;
                     updatePlayerPosition(pid, player.x, player.y, 'down');
                     players[pid] = players[pid] || {};
                     players[pid].speed = player.speed || 1;
-                    players[pid].nickname = player.nickname || `Player ${player.playerNumber || pid}`;
+                    players[pid].nickname = player.nickname || Player ${player.playerNumber || pid};
                 }
 
                 // Update player list
@@ -1131,7 +1131,7 @@
                 powerUps = {};
                 if (message.powerUps && Array.isArray(message.powerUps)) {
                     message.powerUps.forEach(powerUp => {
-                        const powerUpKey = `${powerUp.x},${powerUp.y}`;
+                        const powerUpKey = ${powerUp.x},${powerUp.y};
                         powerUps[powerUpKey] = powerUp.type;
                     });
                 }
@@ -1141,13 +1141,13 @@
                 if (message.players && typeof message.players === 'object') {
                     for (const pid in message.players) {
                         const player = message.players[pid];
-                        const imageName = player.playerNumber ? `player${player.playerNumber}` : 'default_player';
+                        const imageName = player.playerNumber ? player${player.playerNumber} : 'default_player';
                         playerImages[pid] = imageName;
                         players[pid] = players[pid] || {};
                         players[pid].x = player.x;
                         players[pid].y = player.y;
                         players[pid].speed = player.speed || 1;
-                        players[pid].nickname = player.nickname || `Player ${player.playerNumber || pid}`;
+                        players[pid].nickname = player.nickname || Player ${player.playerNumber || pid};
                         updatePlayerPosition(pid, player.x, player.y, 'down');
                     }
 
@@ -1172,13 +1172,13 @@
             } else if (message.type === 'newPlayer') {
                 // Map new player's ID to image names
                 const newPlayerId = message.playerId;
-                const imageName = message.playerNumber ? `player${message.playerNumber}` : 'default_player';
+                const imageName = message.playerNumber ? player${message.playerNumber} : 'default_player';
                 playerImages[newPlayerId] = imageName;
                 updatePlayerPosition(newPlayerId, message.x, message.y, 'down');
 
                 // Store nickname
                 players[newPlayerId] = players[newPlayerId] || {};
-                players[newPlayerId].nickname = message.nickname || `Player ${message.playerNumber || newPlayerId}`;
+                players[newPlayerId].nickname = message.nickname || Player ${message.playerNumber || newPlayerId};
 
                 // Update player list
                 if (message.players && typeof message.players === 'object') {
@@ -1212,8 +1212,8 @@
             } else if (message.type === 'playerHit') {
                 const victimId = message.playerId;
                 const attackerId = message.by;
-                const victimNickname = players[victimId] ? escapeHtml(players[victimId].nickname || `Player ${players[victimId].playerNumber || victimId}`) : 'Unknown';
-                const attackerNickname = attackerId && players[attackerId] ? escapeHtml(players[attackerId].nickname || `Player ${attackerId}`) : 'Unknown';
+                const victimNickname = players[victimId] ? escapeHtml(players[victimId].nickname || Player ${players[victimId].playerNumber || victimId}) : 'Unknown';
+                const attackerNickname = attackerId && players[attackerId] ? escapeHtml(players[attackerId].nickname || Player ${attackerId}) : 'Unknown';
                 
                 // Update player position
                 if (message.x !== undefined && message.y !== undefined) {
@@ -1223,15 +1223,15 @@
                 // Display appropriate message
                 if (victimId === playerId) {
                     if (attackerId === playerId) {
-                        showMessage(`You blew yourself up!`);
+                        showMessage(You blew yourself up!);
                     } else {
-                        showMessage(`You were hit by ${attackerNickname}!`);
+                        showMessage(You were hit by ${attackerNickname}!);
                     }
                 } else {
                     if (attackerId === victimId) {
-                        showMessage(`${victimNickname} blew themselves up!`);
+                        showMessage(${victimNickname} blew themselves up!);
                     } else {
-                        showMessage(`${victimNickname} was hit by ${attackerNickname}!`);
+                        showMessage(${victimNickname} was hit by ${attackerNickname}!);
                     }
                 }
                 
@@ -1246,7 +1246,7 @@
                 if (typeof message.x === 'number' && typeof message.y === 'number') {
                     const idx = message.y * 15 + message.x;
                     const cell = gameElement.children[idx];
-                    const powerUpKey = `${message.x},${message.y}`;
+                    const powerUpKey = ${message.x},${message.y};
                     delete powerUps[powerUpKey]; // Remove from powerUps object
                     map[message.y][message.x] = 0; // Update map array
 
@@ -1270,7 +1270,7 @@
 
                     const nicknameSpan = document.createElement('span');
                     nicknameSpan.classList.add('nickname');
-                    nicknameSpan.textContent = `${message.nickname}: `;
+                    nicknameSpan.textContent = ${message.nickname}: ;
 
                     chatMsg.appendChild(nicknameSpan);
                     chatMsg.appendChild(document.createTextNode(message.message));
