@@ -414,6 +414,20 @@
             50% { text-shadow: 0 0 25px #00ffff; }
         }
 
+        /* Bomb Cooldown Indicator */
+        #bomb-cooldown {
+            display: none;
+            margin-left: 20px;
+            font-size: 16px;
+            color: #ff4d4d;
+            text-shadow: 0 0 10px #ff4d4d;
+            animation: pulseCooldown 1s infinite;
+        }
+        @keyframes pulseCooldown {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         /* Updated styles for the player list */
         #player-list {
             display: flex;
@@ -522,7 +536,7 @@
             color: #fff;
             font-weight: bold;
             animation: shakeFade 6s forwards;
-            text-shadow: 0 0 15px #ff0000;
+            text-shadow: 0 0 15px #ff4d4d;
         }
         @keyframes shakeFade {
             0% { opacity: 1; transform: translateX(0); }
@@ -792,7 +806,10 @@
     </div>
     <div id="game-area">
         <div id="game"></div>
-        <div id="status" class="glow-text">Game started! Use arrow keys to move. Press space to drop a bomb.</div>
+        <div id="status" class="glow-text">
+            Game started! Use arrow keys to move. Press space to drop a bomb.
+            <span id="bomb-cooldown"></span>
+        </div>
     </div>
     <div id="player-list">
         <h2>Players</h2>
@@ -832,6 +849,7 @@
     const reconnectDelay = 3000; // 3 seconds
     const gameElement = document.getElementById('game');
     const statusElement = document.getElementById('status');
+    const bombCooldownElement = document.getElementById('bomb-cooldown');
     const playerListElement = document.getElementById('players');
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
@@ -858,6 +876,9 @@
     const playerElements = {}; // Cache for player DOM elements
 
     let connectionRefused = false;
+
+    let canDropBomb = true;
+    let bombCooldownTimer = null;
 
     function escapeHtml(unsafe) {
         return unsafe.replace(/[&<"'>]/g, function(m) {
@@ -1309,6 +1330,7 @@
             ws.send(JSON.stringify({ type: 'join', playerId: playerId, password: password, nickname: nickname }));
             reconnectAttempts = 0;
             statusElement.textContent = "Connected to Bomberman!";
+            bombCooldownElement.style.display = 'none';
         };
 
         ws.onmessage = (event) => {
@@ -1514,6 +1536,31 @@
                         updatePlayerSpeed();
                     }
                 }
+            } else if (message.type === 'bombCooldown') {
+                if (typeof message.canDropBomb === 'boolean') {
+                    if (!message.canDropBomb) {
+                        canDropBomb = false;
+                        bombCooldownElement.style.display = 'inline';
+                        let countdown = 3;
+                        bombCooldownElement.textContent = ` Bomb cooldown: ${countdown}s`;
+                        bombCooldownTimer = setInterval(() => {
+                            countdown--;
+                            if (countdown > 0) {
+                                bombCooldownElement.textContent = ` Bomb cooldown: ${countdown}s`;
+                            } else {
+                                clearInterval(bombCooldownTimer);
+                                bombCooldownElement.style.display = 'none';
+                            }
+                        }, 1000);
+                    } else {
+                        canDropBomb = true;
+                        bombCooldownElement.style.display = 'none';
+                        if (bombCooldownTimer) {
+                            clearInterval(bombCooldownTimer);
+                            bombCooldownTimer = null;
+                        }
+                    }
+                }
             }
             // Handle other message types as needed
         };
@@ -1545,8 +1592,10 @@
 
             if (event.key === ' ') {
                 event.preventDefault();
-                // Send placeBomb message
-                ws.send(JSON.stringify({ type: 'placeBomb', playerId: playerId, password: password }));
+                if (canDropBomb) {
+                    // Send placeBomb message
+                    ws.send(JSON.stringify({ type: 'placeBomb', playerId: playerId, password: password }));
+                }
             } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
                 if (!keysPressed[event.key]) {
                     event.preventDefault();

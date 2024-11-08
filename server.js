@@ -262,6 +262,20 @@ const ipConnections = new Map();
 // Map to track active player connections
 const activePlayers = new Map();
 
+// Function to assign a random spawn point
+function assignRandomSpawnPoint(game) {
+    const occupiedPositions = new Set(Object.values(game.players).map(player => `${player.x},${player.y}`));
+    const availablePositions = playerStartingPositions.filter(pos => !occupiedPositions.has(`${pos.x},${pos.y}`));
+
+    if (availablePositions.length === 0) {
+        // Fallback to first position if all are occupied (shouldn't happen)
+        return playerStartingPositions[0];
+    }
+
+    const randomIndex = Math.floor(Math.random() * availablePositions.length);
+    return availablePositions[randomIndex];
+}
+
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
     // Gebruik het IP uit de X-Forwarded-For header of fallback naar remoteAddress
@@ -321,18 +335,18 @@ wss.on('connection', (ws, req) => {
                 activePlayers.set(playerId, ws);
 
                 const numPlayers = Object.keys(game.players).length;
-                const playerNumber = numPlayers + 1; // Assign player number
+                // No longer using playerNumber based on order, since spawn is random
 
                 // Limit the number of players if necessary
-                if (playerNumber > playerStartingPositions.length) { // Match number of starting positions
+                if (numPlayers >= playerStartingPositions.length) { // Match number of starting positions
                     ws.send(JSON.stringify({ type: 'error', message: 'Game is full.' }));
                     ws.close(4004, 'Game is full.');
                     activePlayers.delete(playerId);
                     return;
                 }
 
-                // Assign initial positions based on player number
-                let initialPosition = getPlayerInitialPosition(playerNumber);
+                // Assign a random initial position
+                let initialPosition = assignRandomSpawnPoint(game);
 
                 // Validate initial position
                 if (!isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
@@ -347,12 +361,13 @@ wss.on('connection', (ws, req) => {
                     y: initialPosition.y,
                     nickname: nickname,
                     score: 0,
-                    playerNumber: playerNumber,
+                    playerNumber: numPlayers + 1, // Assign player number based on join order
                     maxBombs: 1, // Default bomb capacity
                     bombRadius: 1, // Default blast radius
                     currentBombs: 0, // Bombs currently placed
                     invincible: false, // Invincibility status
-                    speed: 1 // Default speed level
+                    speed: 1, // Default speed level
+                    canDropBomb: true // **Added for bomb drop cooldown**
                 };
 
                 game.clients.add(ws);
@@ -368,12 +383,13 @@ wss.on('connection', (ws, req) => {
                     type: 'start',
                     message: 'Game started! Use arrow keys to move. Press space to drop a bomb.',
                     players: game.players,
-                    playerNumber: playerNumber,
+                    playerNumber: game.players[playerId].playerNumber,
                     map: game.map,
                     powerUps: Array.from(game.powerUps).map(([key, value]) => {
                         const [x, y] = key.split(',').map(Number);
                         return { x, y, type: value };
-                    })
+                    }),
+                    canDropBomb: game.players[playerId].canDropBomb // **Initial cooldown state**
                 }));
 
                 // Notify other clients about the new player
@@ -382,7 +398,7 @@ wss.on('connection', (ws, req) => {
                     playerId,
                     x: initialPosition.x,
                     y: initialPosition.y,
-                    playerNumber: playerNumber,
+                    playerNumber: game.players[playerId].playerNumber,
                     nickname: nickname,
                     score: 0 // Initial score
                 }, ws);
@@ -393,7 +409,7 @@ wss.on('connection', (ws, req) => {
                     players: game.players
                 });
 
-                log('info', `Player ${nickname} joined game ${gamePassword} as Player ${playerNumber}`);
+                log('info', `Player ${nickname} joined game ${gamePassword} at position (${initialPosition.x}, ${initialPosition.y})`);
             }
 
             if (data.type === 'move') {
@@ -459,6 +475,12 @@ wss.on('connection', (ws, req) => {
                 if (!game) return;
                 const player = game.players[playerId];
                 if (!player) return;
+
+                // **Check Bomb Drop Cooldown**
+                if (!player.canDropBomb) {
+                    // Optionally, you can send a message to client indicating bomb drop is on cooldown
+                    return; // Ignore the bomb drop request
+                }
 
                 // Check bomb capacity
                 if (player.currentBombs >= player.maxBombs) return;
@@ -539,18 +561,6 @@ wss.on('connection', (ws, req) => {
                     }
                     return true;
                 });
-
-                // If no clients remain, delete the game
-                if (game.clients.size === 0) {
-                    log('info', `Deleting empty game ${gamePassword}`);
-                    // Clear game creation timeout
-                    if (game.timeout) clearTimeout(game.timeout);
-                    // Clear remaining bomb timeouts
-                    game.bombs.forEach(bomb => {
-                        if (bomb.timerId) clearTimeout(bomb.timerId);
-                    });
-                    delete games[gamePassword];
-                }
             }
         }
 
@@ -609,9 +619,24 @@ function applyPowerUp(player, powerUp) {
 }
 
 // Function to get player's initial position based on player number
-function getPlayerInitialPosition(playerNumber) {
-    return playerStartingPositions[playerNumber - 1] || { x: 1, y: 1 };
-}
+// **Removed since spawn is now random**
+// function getPlayerInitialPosition(playerNumber) {
+//     return playerStartingPositions[playerNumber - 1] || { x: 1, y: 1 };
+// }
+
+// **New Function: Assign Random Spawn Point**
+// function assignRandomSpawnPoint(game) {
+//     const occupiedPositions = new Set(Object.values(game.players).map(player => `${player.x},${player.y}`));
+//     const availablePositions = playerStartingPositions.filter(pos => !occupiedPositions.has(`${pos.x},${pos.y}`));
+
+//     if (availablePositions.length === 0) {
+//         // Fallback to first position if all are occupied (shouldn't happen)
+//         return playerStartingPositions[0];
+//     }
+
+//     const randomIndex = Math.floor(Math.random() * availablePositions.length);
+//     return availablePositions[randomIndex];
+// }
 
 // Function to check if a position is valid within the map
 function isPositionValid(x, y, map) {
@@ -741,7 +766,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                 const targetPlayer = game.players[pId];
                 if (targetPlayer.x === pos.x && targetPlayer.y === pos.y && !targetPlayer.invincible) {
                     // Reset player position
-                    const initialPosition = getPlayerInitialPosition(targetPlayer.playerNumber);
+                    const initialPosition = assignRandomSpawnPoint(game);
                     if (isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
                         targetPlayer.x = initialPosition.x;
                         targetPlayer.y = initialPosition.y;
@@ -755,6 +780,29 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                     setTimeout(() => {
                         targetPlayer.invincible = false;
                     }, 5000); // 5 seconds of invincibility
+
+                    // **Implement Bomb Drop Cooldown After Being Hit**
+                    targetPlayer.canDropBomb = false;
+
+                    // Send cooldown state to the affected player
+                    const targetWs = activePlayers.get(pId);
+                    if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+                        targetWs.send(JSON.stringify({
+                            type: 'bombCooldown',
+                            canDropBomb: false
+                        }));
+                    }
+
+                    // Start cooldown timer
+                    setTimeout(() => {
+                        targetPlayer.canDropBomb = true;
+                        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+                            targetWs.send(JSON.stringify({
+                                type: 'bombCooldown',
+                                canDropBomb: true
+                            }));
+                        }
+                    }, 3000); // 3 seconds cooldown
 
                     // Only award point if the player hit is not the bomb owner
                     if (bomb.owner !== pId) {
@@ -794,7 +842,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                 // Reset players' positions and properties
                 Object.keys(game.players).forEach(pId => {
                     const player = game.players[pId];
-                    const initialPosition = getPlayerInitialPosition(player.playerNumber);
+                    const initialPosition = assignRandomSpawnPoint(game);
                     if (isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
                         player.x = initialPosition.x;
                         player.y = initialPosition.y;
@@ -807,6 +855,16 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                     player.currentBombs = 0;
                     player.speed = 1;
                     player.invincible = false;
+                    player.canDropBomb = true; // Reset bomb cooldown state
+
+                    // Notify players about reset cooldown state
+                    const playerWs = activePlayers.get(pId);
+                    if (playerWs && playerWs.readyState === WebSocket.OPEN) {
+                        playerWs.send(JSON.stringify({
+                            type: 'bombCooldown',
+                            canDropBomb: true
+                        }));
+                    }
                 });
 
                 log('info', `All brick walls destroyed in game ${gamePassword}. Generating a new map.`);
