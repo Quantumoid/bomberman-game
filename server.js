@@ -688,12 +688,12 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                             destroyedBricks.push({ x: pos.x, y: pos.y });
 
                             // Random chance to generate a power-up
-                            if (Math.random() < 0.3) { // 30% chance
+                            if (Math.random() < 0.66) { // 66% chance
                                 const powerUpTypeRandom = Math.random();
                                 let powerUpType = 'bombCapacity';
-                                if (powerUpTypeRandom < 0.33) {
+                                if (powerUpTypeRandom < 0.40) {
                                     powerUpType = 'bombCapacity';
-                                } else if (powerUpTypeRandom < 0.66) {
+                                } else if (powerUpTypeRandom < 0.80) {
                                     powerUpType = 'blastRadius';
                                 } else {
                                     powerUpType = 'speed';
