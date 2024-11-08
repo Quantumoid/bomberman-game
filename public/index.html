@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bomberman Game</title>
+    <title>Bomberman</title>
     <link rel="icon" href="/favicon.png" type="image/x-icon">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
@@ -103,10 +103,6 @@
             from { transform: translate(0, 0); }
             to { transform: translate(50%, 50%); }
         }
-        @keyframes trophyMove {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-        }
         #game-container { 
             display: flex; 
             flex-direction: row; 
@@ -134,9 +130,9 @@
             height: 650px;
             backdrop-filter: blur(10px);
             position: relative;
+            overflow: hidden;
         }
-        #chat-container::before,
-        #chat-container::after {
+        #chat-container::before, #chat-container::after {
             content: '';
             position: absolute;
             top: 0;
@@ -145,106 +141,73 @@
             height: 200%;
             background: transparent;
             box-shadow: 
-                10px 20px white, 50px 80px white, 100px 150px white,
-                200px 300px white, 350px 420px white, 400px 500px white,
-                600px 700px white, 750px 820px white, 900px 950px white,
-                1100px 1200px white, 1300px 1400px white, 1500px 1600px white,
-                1700px 1800px white, 1900px 2000px white;
-            animation: moveStars 100s linear infinite;
-            pointer-events: none;
+                5px 10px white, 25px 40px white, 50px 75px white,
+                100px 150px white, 175px 210px white, 200px 250px white,
+                300px 350px white, 375px 410px white, 450px 475px white,
+                550px 600px white, 650px 700px white, 750px 800px white,
+                850px 900px white, 950px 1000px white;
+            animation: moveStars 80s linear infinite;
             z-index: -1;
         }
         #chat-container::after {
             box-shadow: 
-                15px 25px white, 55px 85px white, 105px 155px white,
-                205px 305px white, 355px 425px white, 405px 505px white,
-                605px 705px white, 755px 825px white, 905px 955px white,
-                1105px 1210px white, 1310px 1410px white, 1510px 1610px white,
-                1710px 1810px white, 1910px 2010px white;
-            animation: moveStarsReverse 150s linear infinite;
+                10px 15px white, 30px 45px white, 60px 90px white,
+                120px 180px white, 210px 250px white, 240px 300px white,
+                360px 420px white, 420px 460px white, 540px 580px white,
+                660px 720px white, 780px 840px white, 900px 960px white,
+                1020px 1080px white, 1140px 1200px white;
+            animation: moveStarsReverse 120s linear infinite;
         }
-        #chat-container h2 {
-            margin-bottom: 25px;
-            text-align: center;
+        #player-list {
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid #00ffff;
+            padding: 25px;
+            border-radius: 20px;
+            width: 300px;
+            max-width: 100%;
+            height: 650px;
+            overflow-y: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
             color: #00ffff;
-            font-family: 'Orbitron', sans-serif;
-            text-shadow: 0 0 15px #00ffff;
-        }
-        #chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 15px;
-        }
-        .chat-message {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 10px;
-            animation: fadeoutMessage 6s forwards;
-            font-size: 16px;
-            color: #00ffff;
-            text-shadow: 0 0 7px #00ffff;
-            backdrop-filter: blur(5px);
-        }
-        @keyframes fadeoutMessage {
-            0% { opacity: 1; transform: translateY(0); }
-            80% { opacity: 1; transform: translateY(-10px); }
-            100% { opacity: 0; transform: translateY(-20px); }
-        }
-        .chat-message.hit-message {
-            background: rgba(255, 0, 0, 0.8);
-            color: #fff;
-            font-weight: bold;
-            animation: shakeFade 6s forwards;
-            text-shadow: 0 0 15px #ff0000;
-        }
-        @keyframes shakeFade {
-            0% { opacity: 1; transform: translateX(0); }
-            10% { transform: translateX(-5px); }
-            20% { transform: translateX(5px); }
-            30% { transform: translateX(-5px); }
-            40% { transform: translateX(5px); }
-            50% { transform: translateX(-5px); }
-            60% { transform: translateX(5px); }
-            70% { transform: translateX(-5px); }
-            80% { opacity: 0.5; transform: translateX(0); }
-            100% { opacity: 0; transform: translateX(0); }
-        }
-        .chat-message .nickname {
-            color: #ff69b4;
-            font-weight: bold;
-        }
-        #chat-input-container {
             display: flex;
-            gap: 15px;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
         }
-        #chat-input {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 10px;
-            font-size: 14px;
-            outline: none;
-            background: rgba(255, 255, 255, 0.1);
-            color: #00ffff;
-            box-shadow: 0 0 10px rgba(0,255,255,0.7);
-            backdrop-filter: blur(5px);
+        #player-list::before, #player-list::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background: transparent;
+            box-shadow: 
+                5px 10px white, 25px 40px white, 50px 75px white,
+                100px 150px white, 175px 210px white, 200px 250px white,
+                300px 350px white, 375px 410px white, 450px 475px white,
+                550px 600px white, 650px 700px white, 750px 800px white,
+                850px 900px white, 950px 1000px white;
+            animation: moveStars 90s linear infinite;
+            z-index: -1;
         }
-        #chat-send {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 10px;
-            background-color: #00ffff;
-            color: #000;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 0 10px rgba(0,255,255,0.7);
-            backdrop-filter: blur(5px);
+        #player-list::after {
+            box-shadow: 
+                10px 15px white, 30px 45px white, 60px 90px white,
+                120px 180px white, 210px 250px white, 240px 300px white,
+                360px 420px white, 420px 460px white, 540px 580px white,
+                660px 720px white, 780px 840px white, 900px 960px white,
+                1020px 1080px white, 1140px 1200px white;
+            animation: moveStarsReverse 110s linear infinite;
         }
-        #chat-send:hover {
-            background-color: #00cccc;
-            transform: scale(1.05);
+        @keyframes moveStars {
+            from { transform: translate(0, 0); }
+            to { transform: translate(-50%, -50%); }
+        }
+        @keyframes moveStarsReverse {
+            from { transform: translate(0, 0); }
+            to { transform: translate(50%, 50%); }
         }
         #game-area { 
             display: flex; 
@@ -309,7 +272,6 @@
             z-index: 1;
             pointer-events: none;
             animation: glowPowerUp 2s ease-in-out infinite alternate;
-            box-shadow: 0 0 10px purple;
         }
         @keyframes glowPowerUp {
             from { filter: brightness(1); }
@@ -423,41 +385,14 @@
             width: 300px;
             max-width: 100%;
             height: 650px;
-            overflow-y: auto;
+            overflow-y: hidden;
             box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
             color: #00ffff;
             display: flex;
             flex-direction: column;
             backdrop-filter: blur(10px);
             position: relative;
-        }
-        #player-list::before,
-        #player-list::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 200%;
-            height: 200%;
-            background: transparent;
-            box-shadow: 
-                10px 20px white, 50px 80px white, 100px 150px white,
-                200px 300px white, 350px 420px white, 400px 500px white,
-                600px 700px white, 750px 820px white, 900px 950px white,
-                1100px 1200px white, 1300px 1400px white, 1500px 1600px white,
-                1700px 1800px white, 1900px 2000px white;
-            animation: moveStars 100s linear infinite;
-            pointer-events: none;
-            z-index: -1;
-        }
-        #player-list::after {
-            box-shadow: 
-                15px 25px white, 55px 85px white, 105px 155px white,
-                205px 305px white, 355px 425px white, 405px 505px white,
-                605px 705px white, 755px 825px white, 905px 955px white,
-                1105px 1210px white, 1310px 1410px white, 1510px 1610px white,
-                1710px 1810px white, 1910px 2010px white;
-            animation: moveStarsReverse 150s linear infinite;
+            overflow: hidden;
         }
         #player-list h2 {
             margin-bottom: 25px;
@@ -495,7 +430,11 @@
             width: 45px;
             height: 45px;
             margin-left: 10px;
-            animation: trophyMove 4s ease-in-out infinite;
+            animation: pulsateTrophy 4s ease-in-out infinite;
+        }
+        @keyframes pulsateTrophy {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
         }
 
         /* Styles for the message container and messages */
@@ -505,13 +444,8 @@
             text-align: left;
             position: relative;
             max-height: 180px;
-            overflow-y: auto;
+            overflow: hidden;
             flex: 0 0 auto;
-            scrollbar-width: none; /* Firefox */
-            -ms-overflow-style: none; /* IE and Edge */
-        }
-        #message-container::-webkit-scrollbar {
-            display: none; /* Chrome, Safari, Opera*/
         }
         .game-message {
             display: block;
@@ -525,6 +459,11 @@
             text-shadow: 0 0 7px #00ffff;
             backdrop-filter: blur(5px);
         }
+        @keyframes fadeoutMessage {
+            0% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(-10px); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
 
         /* Optional: Enhanced styling for hit messages */
         .game-message.hit-message {
@@ -533,6 +472,18 @@
             font-weight: bold;
             animation: shakeFade 6s forwards;
             text-shadow: 0 0 15px #ff0000;
+        }
+        @keyframes shakeFade {
+            0% { opacity: 1; transform: translateX(0); }
+            10% { transform: translateX(-5px); }
+            20% { transform: translateX(5px); }
+            30% { transform: translateX(-5px); }
+            40% { transform: translateX(5px); }
+            50% { transform: translateX(-5px); }
+            60% { transform: translateX(5px); }
+            70% { transform: translateX(-5px); }
+            80% { opacity: 0.5; transform: translateX(0); }
+            100% { opacity: 0; transform: translateX(0); }
         }
 
         /* Styles for the nickname overlay */
@@ -1179,19 +1130,29 @@
             powerUpCell.appendChild(powerUpElement);
         });
 
-        // Add 50% more power-ups based on destroyed bricks
-        destroyedBricks.forEach((brick, index) => {
-            if (Math.random() < 0.5) {
-                const type = ['bombCapacity', 'blastRadius', 'speed'][Math.floor(Math.random() * 3)];
-                const newPowerUp = { x: brick.x, y: brick.y, type: type };
-                // Add to newPowerUps array
-                newPowerUps.push(newPowerUp);
-                // Handle as existing power-ups
-                const idx = newPowerUp.y * 15 + newPowerUp.x;
+        // Ensure at least 50% of destroyedBricks drop power-ups
+        const requiredPowerUps = Math.ceil(destroyedBricks.length * 0.5);
+        const existingPowerUps = newPowerUps.length;
+        if (existingPowerUps < requiredPowerUps) {
+            const additionalPowerUpsNeeded = requiredPowerUps - existingPowerUps;
+            const availableBricks = destroyedBricks.filter(brick => {
+                return !newPowerUps.some(pu => pu.x === brick.x && pu.y === brick.y);
+            });
+            for (let i = 0; i < additionalPowerUpsNeeded && i < availableBricks.length; i++) {
+                const brick = availableBricks[i];
+                const powerUpTypeOptions = ['bombCapacity', 'blastRadius', 'speed'];
+                const randomType = powerUpTypeOptions[Math.floor(Math.random() * powerUpTypeOptions.length)];
+                const powerUp = {
+                    x: brick.x,
+                    y: brick.y,
+                    type: randomType
+                };
+                newPowerUps.push(powerUp);
+                const idx = brick.y * 15 + brick.x;
                 const powerUpCell = gameElement.children[idx];
-                const powerUpKey = `${newPowerUp.x},${newPowerUp.y}`;
-                powerUps[powerUpKey] = newPowerUp.type; // Update powerUps object
-                map[newPowerUp.y][newPowerUp.x] = 0; // Update map array
+                const powerUpKey = `${brick.x},${brick.y}`;
+                powerUps[powerUpKey] = powerUp.type; // Update powerUps object
+                map[brick.y][brick.x] = 0; // Update map array
 
                 // Remove any existing classes (e.g., empty-space)
                 powerUpCell.className = 'cell empty-space';
@@ -1200,17 +1161,17 @@
                 const powerUpElement = document.createElement('img');
                 powerUpElement.classList.add('power-up-icon');
 
-                if (newPowerUp.type === 'bombCapacity') {
+                if (powerUp.type === 'bombCapacity') {
                     powerUpElement.src = '/power_up_max_bombs.png';
-                } else if (newPowerUp.type === 'blastRadius') {
+                } else if (powerUp.type === 'blastRadius') {
                     powerUpElement.src = '/power_up_extra_blast_radius.png';
-                } else if (newPowerUp.type === 'speed') {
+                } else if (powerUp.type === 'speed') {
                     powerUpElement.src = '/speed_powerup.png';
                 }
 
                 powerUpCell.appendChild(powerUpElement);
             }
-        });
+        }
     }
 
     function displayExplosion(cell) {
@@ -1293,11 +1254,6 @@
         messageElement.appendChild(document.createTextNode(text));
 
         messageContainer.appendChild(messageElement);
-        messageContainer.scrollTop = messageContainer.scrollHeight;
-
-        messageElement.addEventListener('animationend', () => {
-            messageElement.remove();
-        }, { once: true });
     }
 
     function showErrorOverlay() {
@@ -1526,10 +1482,6 @@
 
                     chatMessages.appendChild(chatMsg);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
-
-                    chatMsg.addEventListener('animationend', () => {
-                        chatMsg.remove();
-                    }, { once: true });
                 }
             } else if (message.type === 'updatePlayerList') {
                 if (message.players && typeof message.players === 'object') {
