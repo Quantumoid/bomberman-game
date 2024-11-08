@@ -786,14 +786,14 @@
             to { background-position: 100px 100px; }
         }
 
-        /* Shielded player glowing like invincible god */
+        /* Shielded player blinking */
         .shielded {
-            animation: shieldGlow 1s infinite;
+            animation: shieldBlink 1s infinite;
         }
-        @keyframes shieldGlow {
-            0% { box-shadow: 0 0 20px 5px rgba(0, 255, 255, 0.7); }
-            50% { box-shadow: 0 0 30px 15px rgba(0, 255, 255, 1); }
-            100% { box-shadow: 0 0 20px 5px rgba(0, 255, 255, 0.7); }
+        @keyframes shieldBlink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
         }
 
     </style>
