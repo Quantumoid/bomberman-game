@@ -1,58 +1,34 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
-const path = require('path');
 const os = require('os');
 const rateLimit = require('express-rate-limit');
-const { Worker } = require('worker_threads');
-const MAX_CONNECTIONS_PER_IP = 2;
 
+// Initialize Express app
 const app = express();
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 3000;
 
-// **Add the following line to trust the first proxy**
-app.set('trust proxy', 1);
-
-// Maximum number of active games
-const MAX_ACTIVE_GAMES = process.env.MAX_ACTIVE_GAMES ? parseInt(process.env.MAX_ACTIVE_GAMES) : 22;
-
-// Simple Logger Function without Timestamp
-function log(level, message) {
-    const levelUpper = level.toUpperCase();
-    console.log(`[${levelUpper}]: ${message}`);
-}
-
-// General Rate Limiter to prevent abuse on all endpoints
-const generalLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 500, // limit each IP to 500 requests per windowMs
-    message: 'Too many requests from this IP, please try again after a minute.',
-});
-
-app.use(generalLimiter);
-
-// Specific Rate Limiter for /create-game to prevent abuse
-const createGameLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 22, // limit each IP to 22 create-game requests per windowMs
-    message: 'Too many game creation requests from this IP, please try again after a minute.',
-});
-
+// Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Health Check Endpoint
-app.get('/healthyornot', (req, res) => {
-    res.status(200).send('OK');
+// Rate limiter for creating games
+const createGameLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute window
+    max: 10, // limit each IP to 10 requests per windowMs
+    message: { error: 'Too many games created from this IP, please try again after a minute.' }
 });
 
-// Tile types
-// 0: Empty space
-// 1: Brick wall (destructible)
-// 2: Indestructible wall
-// 3: Power-up
+// In-memory storage for games and players
+const games = {}; // { password: { players: {}, bombs: [], clients: Set, map: [], powerUps: Map } }
+const activePlayers = new Map(); // playerId -> ws
+const ipConnections = new Map(); // ip -> count
 
-// List of player starting positions
+// Maximum active games
+const MAX_ACTIVE_GAMES = 100;
+
+// Predefined player starting positions
 const playerStartingPositions = [
     { x: 1, y: 1 },
     { x: 13, y: 1 },
@@ -60,590 +36,71 @@ const playerStartingPositions = [
     { x: 13, y: 13 }
 ];
 
-// Function to create a new map with strategic indestructible walls
-function createRandomMap() {
-    return new Promise((resolve, reject) => {
-        const worker = new Worker(`
-            const { parentPort } = require('worker_threads');
-
-            const playerStartingPositions = [
-                { x: 1, y: 1 },
-                { x: 13, y: 1 },
-                { x: 1, y: 13 },
-                { x: 13, y: 13 }
-            ];
-
-            function createInitialMap() {
-                const rows = 15;
-                const cols = 15;
-                const map = Array.from({ length: rows }, () => Array(cols).fill(1));
-
-                for (let y = 0; y < rows; y++) {
-                    for (let x = 0; x < cols; x++) {
-                        if (y === 0 || y === rows - 1 || x === 0 || x === cols - 1) {
-                            map[y][x] = 2; // Border walls
-                        } else if (y % 2 === 0 && x % 2 === 0) {
-                            map[y][x] = 2; // Indestructible walls
-                        }
-                    }
-                }
-
-                // Clear starting positions and their adjacent tiles
-                playerStartingPositions.forEach(pos => {
-                    map[pos.y][pos.x] = 0;
-                    const directions = [
-                        { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
-                        { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
-                    ];
-                    directions.forEach(dir => {
-                        const nx = pos.x + dir.dx;
-                        const ny = pos.y + dir.dy;
-                        if (nx > 0 && nx < cols -1 && ny > 0 && ny < rows -1) {
-                            map[ny][nx] = 0;
-                        }
-                    });
-                });
-
-                return map;
-            }
-
-            function populateDestructibleWalls(map) {
-                for (let y = 1; y < map.length -1; y++) {
-                    for (let x = 1; x < map[0].length -1; x++) {
-                        if (map[y][x] === 1) {
-                            if (Math.random() < 0.7) { // 70% chance to place destructible wall
-                                map[y][x] = 1;
-                            } else {
-                                map[y][x] = 0;
-                            }
-                        }
-                    }
-                }
-                return map;
-            }
-
-            function ensureConnectivity(map) {
-                const rows = map.length;
-                const cols = map[0].length;
-                const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-                const queue = [];
-
-                playerStartingPositions.forEach(pos => {
-                    queue.push(pos);
-                    visited[pos.y][pos.x] = true;
-                });
-
-                while (queue.length > 0) {
-                    const { x, y } = queue.shift();
-                    const directions = [
-                        { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
-                        { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
-                    ];
-
-                    directions.forEach(dir => {
-                        const nx = x + dir.dx;
-                        const ny = y + dir.dy;
-                        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx] && map[ny][nx] !== 2) {
-                            visited[ny][nx] = true;
-                            queue.push({ x: nx, y: ny });
-                        }
-                    });
-                }
-
-                // Remove unreachable destructible walls
-                for (let y = 1; y < rows -1; y++) {
-                    for (let x = 1; x < cols -1; x++) {
-                        if (map[y][x] === 1 && !visited[y][x]) {
-                            map[y][x] = 0;
-                        }
-                    }
-                }
-
-                return map;
-            }
-
-            parentPort.on('message', () => {
-                try {
-                    let map = createInitialMap();
-                    map = populateDestructibleWalls(map);
-                    map = ensureConnectivity(map);
-                    parentPort.postMessage({ map });
-                } catch (error) {
-                    parentPort.postMessage({ error: error.message });
-                }
-            });
-        `, { eval: true });
-
-        worker.on('message', (message) => {
-            if (message.error) {
-                reject(new Error(message.error));
-            } else {
-                resolve(message.map);
-            }
-        });
-
-        worker.on('error', (error) => {
-            reject(error);
-        });
-
-        worker.postMessage('start');
-    });
+// Helper function to log messages
+function log(level, message) {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [${level.toUpperCase()}] ${message}`);
 }
 
-// Function to check if all starting positions are connected
-function areAllStartingPositionsConnected(map) {
-    const visited = Array.from({ length: map.length }, () => Array(map[0].length).fill(false));
-    const queue = [];
-
-    // Start BFS from the first starting position
-    const startPos = playerStartingPositions[0];
-    queue.push(startPos);
-    visited[startPos.y][startPos.x] = true;
-
-    while (queue.length > 0) {
-        const { x, y } = queue.shift();
-        const neighbors = [
-            { x: x - 1, y },
-            { x: x + 1, y },
-            { x, y: y - 1 },
-            { x, y: y + 1 }
-        ];
-
-        neighbors.forEach(({ x: nx, y: ny }) => {
-            if (nx >= 0 && nx < map[0].length && ny >= 0 && ny < map.length && !visited[ny][nx] && map[ny][nx] !== 2) {
-                visited[ny][nx] = true;
-                queue.push({ x: nx, y: ny });
-            }
-        });
-    }
-
-    // Check if all starting positions are visited
-    for (let pos of playerStartingPositions) {
-        if (!visited[pos.y][pos.x]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-// Retry logic for createRandomMap
-async function createRandomMapWithRetries(maxRetries = 5) {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+// Helper function to create a random map
+async function createRandomMapWithRetries(retries = 5) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            const map = await createRandomMap();
-            if (areAllStartingPositionsConnected(map)) {
+            const map = generateRandomMap();
+            if (validateMap(map)) {
                 return map;
             } else {
-                throw new Error('Generated map does not connect all starting positions.');
+                throw new Error('Generated map is invalid.');
             }
         } catch (error) {
             log('warn', `Map generation attempt ${attempt} failed: ${error.message}`);
-            if (attempt === maxRetries) {
+            if (attempt === retries) {
                 throw error;
             }
         }
     }
 }
 
-// Create HTTP server and bind to all interfaces
+// Function to generate a random map
+function generateRandomMap() {
+    const size = 15;
+    const map = [];
+    for (let y = 0; y < size; y++) {
+        const row = [];
+        for (let x = 0; x < size; x++) {
+            if (x === 0 || y === 0 || x === size - 1 || y === size - 1) {
+                row.push(2); // Indestructible walls around the border
+            } else if (x % 2 === 0 && y % 2 === 0) {
+                row.push(2); // Indestructible walls
+            } else {
+                // Randomly place brick walls or empty space
+                row.push(Math.random() < 0.7 ? 1 : 0); // 70% chance of brick wall
+            }
+        }
+        map.push(row);
+    }
+    return map;
+}
+
+// Function to validate the map
+function validateMap(map) {
+    // Ensure there are at least some empty spaces for players
+    let emptyCount = 0;
+    for (let row of map) {
+        for (let tile of row) {
+            if (tile === 0) emptyCount++;
+        }
+    }
+    return emptyCount > 50; // Arbitrary threshold
+}
+
+// Create HTTP server
 const server = http.createServer(app);
+
+// Initialize WebSocket server instance
 const wss = new WebSocket.Server({ server });
 
-// Increase server timeouts to prevent Render from marking it unhealthy
-server.keepAliveTimeout = 86400000; // 1 day in milliseconds
-server.headersTimeout = 86400000;   // 1 day in milliseconds
-
-// Store all active games
-const games = {};
-
-// Map to track number of connections per IP
-const ipConnections = new Map();
-
-// Map to track active player connections
-const activePlayers = new Map();
-
-// Function to assign a random spawn point
-function assignRandomSpawnPoint(game) {
-    const occupiedPositions = new Set(Object.values(game.players).map(player => `${player.x},${player.y}`));
-    const availablePositions = playerStartingPositions.filter(pos => !occupiedPositions.has(`${pos.x},${pos.y}`));
-
-    if (availablePositions.length === 0) {
-        // Fallback to first position if all are occupied (shouldn't happen)
-        return playerStartingPositions[0];
-    }
-
-    const randomIndex = Math.floor(Math.random() * availablePositions.length);
-    return availablePositions[randomIndex];
-}
-
-// WebSocket connection handling
-wss.on('connection', (ws, req) => {
-    // Gebruik het IP uit de X-Forwarded-For header of fallback naar remoteAddress
-    let ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    if (ip && ip.includes(',')) {
-        ip = ip.split(',')[0]; // Neem het eerste IP uit de lijst
-    }
-
-    log('info', `Nieuwe WebSocket-verbinding van IP: ${ip}`);
-
-    // Check if the IP has reached the connection limit
-    const currentConnections = ipConnections.get(ip) || 0;
-    if (currentConnections >= MAX_CONNECTIONS_PER_IP) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Maximum connections per IP exceeded.' }));
-        ws.close(4001, 'Maximum connections per IP exceeded.');
-        log('warn', `Connection from IP ${ip} rejected: maximum connections exceeded.`);
-        return;
-    }
-
-    // Increment the connection count for the IP
-    ipConnections.set(ip, currentConnections + 1);
-
-    let playerId;
-    let gamePassword;
-
-    ws.on('message', (message) => {
-        try {
-            const data = JSON.parse(message);
-
-            if (data.type === 'join') {
-                playerId = sanitizePlayerId(data.playerId);
-                gamePassword = sanitizePassword(data.password);
-                const nickname = sanitizeNickname(data.nickname || 'Player');
-
-                if (!gamePassword) {
-                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid game password.' }));
-                    ws.close(4002, 'Invalid game password.');
-                    return;
-                }
-
-                const game = games[gamePassword];
-
-                if (!game) {
-                    ws.send(JSON.stringify({ type: 'error', message: 'Game not found.' }));
-                    ws.close(4003, 'Game not found.');
-                    return;
-                }
-
-                // Check if playerId is already connected
-                if (activePlayers.has(playerId)) {
-                    ws.send(JSON.stringify({ type: 'error', message: 'Player is already connected.' }));
-                    ws.close(4006, 'Player is already connected.');
-                    log('warn', `Player ${playerId} attempted to connect multiple times from IP: ${ip}`);
-                    return;
-                }
-
-                activePlayers.set(playerId, ws);
-
-                const numPlayers = Object.keys(game.players).length;
-                // No longer using playerNumber based on order, since spawn is random
-
-                // Limit the number of players if necessary
-                if (numPlayers >= playerStartingPositions.length) { // Match number of starting positions
-                    ws.send(JSON.stringify({ type: 'error', message: 'Game is full.' }));
-                    ws.close(4004, 'Game is full.');
-                    activePlayers.delete(playerId);
-                    return;
-                }
-
-                // Assign a random initial position
-                let initialPosition = assignRandomSpawnPoint(game);
-
-                // Validate initial position
-                if (!isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
-                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid initial position.' }));
-                    ws.close(4005, 'Invalid initial position.');
-                    activePlayers.delete(playerId);
-                    return;
-                }
-
-                game.players[playerId] = {
-                    x: initialPosition.x,
-                    y: initialPosition.y,
-                    nickname: nickname,
-                    score: 0,
-                    playerNumber: numPlayers + 1, // Assign player number based on join order
-                    maxBombs: 1, // Default bomb capacity
-                    bombRadius: 1, // Default blast radius
-                    currentBombs: 0, // Bombs currently placed
-                    invincible: false, // Invincibility status
-                    speed: 1, // Default speed level
-                    canDropBomb: true // **Added for bomb drop cooldown**
-                };
-
-                game.clients.add(ws);
-
-                // Clear the game timeout since a player has joined
-                if (game.timeout) {
-                    clearTimeout(game.timeout);
-                    game.timeout = null;
-                }
-
-                // Send the player's number and current game state to the client
-                ws.send(JSON.stringify({
-                    type: 'start',
-                    message: 'Game started! Use arrow keys to move. Press space to drop a bomb.',
-                    players: game.players,
-                    playerNumber: game.players[playerId].playerNumber,
-                    map: game.map,
-                    powerUps: Array.from(game.powerUps).map(([key, value]) => {
-                        const [x, y] = key.split(',').map(Number);
-                        return { x, y, type: value };
-                    }),
-                    canDropBomb: game.players[playerId].canDropBomb // **Initial cooldown state**
-                }));
-
-                // Notify other clients about the new player
-                broadcastToGame(gamePassword, {
-                    type: 'newPlayer',
-                    playerId,
-                    x: initialPosition.x,
-                    y: initialPosition.y,
-                    playerNumber: game.players[playerId].playerNumber,
-                    nickname: nickname,
-                    score: 0 // Initial score
-                }, ws);
-
-                // Send updated player list to all clients
-                broadcastToGame(gamePassword, {
-                    type: 'updatePlayerList',
-                    players: game.players
-                });
-
-                log('info', `Player ${nickname} joined game ${gamePassword} at position (${initialPosition.x}, ${initialPosition.y})`);
-            }
-
-            if (data.type === 'move') {
-                const game = games[gamePassword];
-                if (!game) return;
-                const player = game.players[playerId];
-                if (!player) return;
-
-                let newX = player.x;
-                let newY = player.y;
-
-                switch (data.direction) {
-                    case 'ArrowUp':
-                        newY = Math.max(0, player.y - 1);
-                        break;
-                    case 'ArrowDown':
-                        newY = Math.min(game.map.length - 1, player.y + 1);
-                        break;
-                    case 'ArrowLeft':
-                        newX = Math.max(0, player.x - 1);
-                        break;
-                    case 'ArrowRight':
-                        newX = Math.min(game.map[0].length - 1, player.x + 1);
-                        break;
-                    default:
-                        break;
-                }
-
-                if (isWalkable(newX, newY, game)) {
-                    player.x = newX;
-                    player.y = newY;
-
-                    // Check for power-up at new position
-                    const powerUpKey = `${newX},${newY}`;
-                    if (game.powerUps.has(powerUpKey)) {
-                        const powerUp = game.powerUps.get(powerUpKey);
-                        applyPowerUp(player, powerUp);
-
-                        // Remove power-up from game
-                        game.powerUps.delete(powerUpKey);
-                        game.map[newY][newX] = 0;
-
-                        // Notify clients to remove power-up from the map
-                        broadcastToGame(gamePassword, {
-                            type: 'powerUpCollected',
-                            x: newX,
-                            y: newY
-                        });
-                    }
-
-                    broadcastToGame(gamePassword, {
-                        type: 'update',
-                        playerId,
-                        x: player.x,
-                        y: player.y,
-                        direction: data.direction
-                    });
-                }
-            }
-
-            if (data.type === 'placeBomb') {
-                const game = games[gamePassword];
-                if (!game) return;
-                const player = game.players[playerId];
-                if (!player) return;
-
-                // **Check Bomb Drop Cooldown**
-                if (!player.canDropBomb) {
-                    // Optionally, you can send a message to client indicating bomb drop is on cooldown
-                    return; // Ignore the bomb drop request
-                }
-
-                // Check bomb capacity
-                if (player.currentBombs >= player.maxBombs) return;
-
-                // Place bomb
-                const bomb = {
-                    x: player.x,
-                    y: player.y,
-                    owner: playerId,
-                    radius: player.bombRadius
-                };
-                game.bombs.push(bomb);
-                player.currentBombs++;
-
-                broadcastToGame(gamePassword, {
-                    type: 'bombPlaced',
-                    x: bomb.x,
-                    y: bomb.y
-                });
-
-                // Store the timeout ID in the bomb object
-                bomb.timerId = setTimeout(() => {
-                    explodeBomb(gamePassword, bomb, new Set());
-                }, 3000);
-            }
-
-            if (data.type === 'chat') {
-                const game = games[gamePassword];
-                if (!game) return;
-                const player = game.players[playerId];
-                if (!player) return;
-
-                const chatMessage = sanitizeChatMessage(data.message);
-                const nickname = player.nickname;
-
-                if (chatMessage.length === 0) return;
-
-                // Broadcast the chat message to all clients in the game
-                broadcastToGame(gamePassword, {
-                    type: 'chat',
-                    nickname: nickname,
-                    message: chatMessage
-                });
-            }
-
-        } catch (error) {
-            log('error', `WebSocket Error handling message: ${error.message}`);
-            ws.send(JSON.stringify({ type: 'error', message: 'Internal server error.' }));
-        }
-    });
-
-    ws.on('close', () => {
-        if (gamePassword && playerId && games[gamePassword]) {
-            const game = games[gamePassword];
-            const player = game.players[playerId];
-            if (player) {
-                log('info', `Player ${player.nickname} left game ${gamePassword}`);
-                delete game.players[playerId];
-                game.clients.delete(ws);
-
-                // Notify other clients that a player has left
-                broadcastToGame(gamePassword, {
-                    type: 'playerLeft',
-                    playerId: playerId
-                });
-
-                // Update player list on clients
-                broadcastToGame(gamePassword, {
-                    type: 'updatePlayerList',
-                    players: game.players
-                });
-
-                // Clean up bombs placed by the leaving player
-                game.bombs = game.bombs.filter(bomb => {
-                    if (bomb.owner === playerId) {
-                        if (bomb.timerId) clearTimeout(bomb.timerId);
-                        return false;
-                    }
-                    return true;
-                });
-            }
-        }
-
-        // Remove playerId from activePlayers map
-        if (playerId && activePlayers.has(playerId)) {
-            activePlayers.delete(playerId);
-        }
-
-        // Decrement the connection count for the IP
-        const currentConnections = ipConnections.get(ip) || 1;
-        if (currentConnections <= 1) {
-            ipConnections.delete(ip);
-        } else {
-            ipConnections.set(ip, currentConnections - 1);
-        }
-
-        log('info', `WebSocket verbinding van IP: ${ip} gesloten.`);
-    });
-
-    ws.on('error', (error) => {
-        log('error', `WebSocket error: ${error.message}`);
-    });
-});
-
-// Function to sanitize player IDs
-function sanitizePlayerId(playerId) {
-    return String(playerId).replace(/[^a-zA-Z0-9\-]/g, '');
-}
-
-// Function to sanitize passwords
-function sanitizePassword(password) {
-    return String(password).replace(/[^a-zA-Z0-9\-]/g, '');
-}
-
-// Function to sanitize nicknames
-function sanitizeNickname(nickname) {
-    return String(nickname).substring(0, 20).replace(/[^a-zA-Z0-9 _\-]/g, '');
-}
-
-// Function to sanitize chat messages
-function sanitizeChatMessage(message) {
-    return String(message).substring(0, 200).replace(/[\n\r]/g, '').trim();
-}
-
-// Function to apply power-up to a player
-function applyPowerUp(player, powerUp) {
-    if (powerUp === 'bombCapacity') {
-        player.maxBombs += 1;
-    } else if (powerUp === 'blastRadius') {
-        player.bombRadius += 1;
-    } else if (powerUp === 'speed') {
-        if (player.speed < 4) { // Adjusted maximum speed level to 4
-            player.speed += 1;
-        }
-    }
-}
-
-// Function to get player's initial position based on player number
-// **Removed since spawn is now random**
-// function getPlayerInitialPosition(playerNumber) {
-//     return playerStartingPositions[playerNumber - 1] || { x: 1, y: 1 };
-// }
-
-// **New Function: Assign Random Spawn Point**
-// function assignRandomSpawnPoint(game) {
-//     const occupiedPositions = new Set(Object.values(game.players).map(player => `${player.x},${player.y}`));
-//     const availablePositions = playerStartingPositions.filter(pos => !occupiedPositions.has(`${pos.x},${pos.y}`));
-
-//     if (availablePositions.length === 0) {
-//         // Fallback to first position if all are occupied (shouldn't happen)
-//         return playerStartingPositions[0];
-//     }
-
-//     const randomIndex = Math.floor(Math.random() * availablePositions.length);
-//     return availablePositions[randomIndex];
-// }
-
-// Function to check if a position is valid within the map
-function isPositionValid(x, y, map) {
-    return y >= 0 && y < map.length && x >= 0 && x < map[0].length;
-}
-
-// Broadcast to all clients within a specific game
+// Function to broadcast to all clients in a game
 function broadcastToGame(gamePassword, data, excludeWs = null) {
     const game = games[gamePassword];
     if (game) {
@@ -659,7 +116,7 @@ function broadcastToGame(gamePassword, data, excludeWs = null) {
     }
 }
 
-// Function to handle bomb explosions with chain reactions
+// Function to handle bomb explosion with chain reactions
 function explodeBomb(gamePassword, bomb, explodedBombs) {
     const game = games[gamePassword];
     if (!game) return;
@@ -716,12 +173,14 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                             if (Math.random() < 0.66) { // 66% chance
                                 const powerUpTypeRandom = Math.random();
                                 let powerUpType = 'bombCapacity';
-                                if (powerUpTypeRandom < 0.40) {
+                                if (powerUpTypeRandom < 0.35) {
                                     powerUpType = 'bombCapacity';
-                                } else if (powerUpTypeRandom < 0.80) {
+                                } else if (powerUpTypeRandom < 0.70) {
                                     powerUpType = 'blastRadius';
-                                } else {
+                                } else if (powerUpTypeRandom < 0.90) {
                                     powerUpType = 'speed';
+                                } else {
+                                    powerUpType = 'shield';
                                 }
 
                                 const key = `${pos.x},${pos.y}`;
@@ -764,7 +223,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
         explosionPositions.forEach(pos => {
             Object.keys(game.players).forEach(pId => {
                 const targetPlayer = game.players[pId];
-                if (targetPlayer.x === pos.x && targetPlayer.y === pos.y && !targetPlayer.invincible) {
+                if (targetPlayer.x === pos.x && targetPlayer.y === pos.y && !targetPlayer.invincible && !targetPlayer.shielded) {
                     // Reset player position
                     const initialPosition = assignRandomSpawnPoint(game);
                     if (isPositionValid(initialPosition.x, initialPosition.y, game.map)) {
@@ -817,7 +276,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                         y: targetPlayer.y
                     });
 
-                    // Update player scores on clients
+                    // Update player list on clients
                     broadcastToGame(gamePassword, {
                         type: 'updatePlayerList',
                         players: game.players
@@ -855,6 +314,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                     player.currentBombs = 0;
                     player.speed = 1;
                     player.invincible = false;
+                    player.shielded = false; // Reset shielded state
                     player.canDropBomb = true; // Reset bomb cooldown state
 
                     // Notify players about reset cooldown state
@@ -863,6 +323,9 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                         playerWs.send(JSON.stringify({
                             type: 'bombCooldown',
                             canDropBomb: true
+                        }));
+                        playerWs.send(JSON.stringify({
+                            type: 'shieldDeactivated'
                         }));
                     }
                 });
@@ -883,6 +346,78 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
     } catch (error) {
         log('error', `Error during bomb explosion: ${error.message}`);
     }
+}
+
+// Function to check if a position is valid within the map
+function isPositionValid(x, y, map) {
+    return y >= 0 && y < map.length && x >= 0 && x < map[0].length;
+}
+
+// Function to sanitize player IDs
+function sanitizePlayerId(playerId) {
+    return String(playerId).replace(/[^a-zA-Z0-9\-]/g, '');
+}
+
+// Function to sanitize passwords
+function sanitizePassword(password) {
+    return String(password).replace(/[^a-zA-Z0-9\-]/g, '');
+}
+
+// Function to sanitize nicknames
+function sanitizeNickname(nickname) {
+    return String(nickname).substring(0, 20).replace(/[^a-zA-Z0-9 _\-]/g, '');
+}
+
+// Function to sanitize chat messages
+function sanitizeChatMessage(message) {
+    return String(message).substring(0, 200).replace(/[\n\r]/g, '').trim();
+}
+
+// Function to apply power-up to a player
+function applyPowerUp(player, powerUp) {
+    if (powerUp === 'bombCapacity') {
+        player.maxBombs += 1;
+    } else if (powerUp === 'blastRadius') {
+        player.bombRadius += 1;
+    } else if (powerUp === 'speed') {
+        if (player.speed < 4) { // Adjusted maximum speed level to 4
+            player.speed += 1;
+        }
+    } else if (powerUp === 'shield') {
+        if (!player.shielded) {
+            player.shielded = true;
+            const playerWs = activePlayers.get(player.id);
+            if (playerWs && playerWs.readyState === WebSocket.OPEN) {
+                playerWs.send(JSON.stringify({ type: 'shieldActivated' }));
+            }
+            // Set a timer to remove the shield after 10 seconds
+            setTimeout(() => {
+                player.shielded = false;
+                if (playerWs && playerWs.readyState === WebSocket.OPEN) {
+                    playerWs.send(JSON.stringify({ type: 'shieldDeactivated' }));
+                }
+            }, 10000); // 10 seconds
+        }
+    }
+}
+
+// Function to assign a random spawn point
+function assignRandomSpawnPoint(game) {
+    const occupiedPositions = new Set(Object.values(game.players).map(player => `${player.x},${player.y}`));
+    const availablePositions = playerStartingPositions.filter(pos => !occupiedPositions.has(`${pos.x},${pos.y}`));
+
+    if (availablePositions.length === 0) {
+        // Fallback to first position if all are occupied (shouldn't happen)
+        return playerStartingPositions[0];
+    }
+
+    const randomIndex = Math.floor(Math.random() * availablePositions.length);
+    return availablePositions[randomIndex];
+}
+
+// Function to check if a position is walkable within the map
+function isWalkable(x, y, game) {
+    return isPositionValid(x, y, game.map) && (game.map[y][x] === 0 || game.map[y][x] === 3);
 }
 
 // Function to check if all brick walls are destroyed
@@ -952,37 +487,334 @@ app.get('/game/:password', (req, res) => {
     }
 });
 
-// Function to check if a position is walkable
-function isWalkable(x, y, game) {
-    const tile = game.map[y][x];
-    // Check if there's a bomb at this position
-    const hasBomb = game.bombs.some(bomb => bomb.x === x && bomb.y === y);
-    return (tile === 0 || tile === 3) && !hasBomb;
+// Broadcast to all clients within a specific game
+function broadcastToGame(gamePassword, data, excludeWs = null) {
+    const game = games[gamePassword];
+    if (game) {
+        game.clients.forEach((client) => {
+            if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
+                try {
+                    client.send(JSON.stringify(data));
+                } catch (error) {
+                    log('error', `Error broadcasting to client: ${error.message}`);
+                }
+            }
+        });
+    }
 }
 
-// Global Express Error Handler
-app.use((err, req, res, next) => {
-    log('error', `Express Error: ${err.message}`);
-    res.status(500).json({ error: 'Internal Server Error' });
-});
+// Handle WebSocket connections
+wss.on('connection', (ws, req) => {
+    const ip = req.socket.remoteAddress;
+    // Increment connection count for this IP
+    const currentConnections = ipConnections.get(ip) || 0;
+    if (currentConnections >= 5) { // Limit to 5 connections per IP
+        log('warn', `Connection refused from IP: ${ip} due to too many connections.`);
+        ws.send(JSON.stringify({ type: 'error', message: 'Maximum connections from this IP exceeded.' }));
+        ws.close();
+        return;
+    }
+    ipConnections.set(ip, currentConnections + 1);
+    log('info', `New WebSocket connection from IP: ${ip}. Total connections from this IP: ${currentConnections + 1}`);
 
-// Start the server and listen on all network interfaces
-server.listen(port, '0.0.0.0', () => {
-    log('info', `Server is running on port ${port}`);
-    log('info', `Accessible online at http://${getLocalIPAddress()}:${port}`);
-});
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message);
+            const type = data.type;
 
-// Function to get the local IP address of the server
-function getLocalIPAddress() {
-    const networkInterfaces = os.networkInterfaces();
-    for (const interfaceName of Object.keys(networkInterfaces)) {
-        for (const iface of networkInterfaces[interfaceName]) {
-            if (iface.family === 'IPv4' && !iface.internal) {
-                return iface.address;
+            if (type === 'join') {
+                let { playerId, password, nickname } = data;
+                playerId = sanitizePlayerId(playerId);
+                password = sanitizePassword(password);
+                nickname = sanitizeNickname(nickname);
+
+                if (!games[password]) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid game password.' }));
+                    return;
+                }
+
+                const game = games[password];
+
+                if (Object.keys(game.players).length >= playerStartingPositions.length) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Game is full.' }));
+                    return;
+                }
+
+                // Assign player number based on existing players
+                const existingPlayerNumbers = Object.values(game.players).map(p => p.playerNumber);
+                let playerNumber = 1;
+                while (existingPlayerNumbers.includes(playerNumber)) {
+                    playerNumber++;
+                }
+
+                // Assign a random spawn point
+                const initialPosition = assignRandomSpawnPoint(game);
+
+                game.players[playerId] = {
+                    id: playerId,
+                    nickname: nickname,
+                    x: initialPosition.x,
+                    y: initialPosition.y,
+                    playerNumber: playerNumber,
+                    maxBombs: 1,
+                    bombRadius: 1,
+                    currentBombs: 0,
+                    speed: 1,
+                    invincible: false,
+                    shielded: false,
+                    canDropBomb: true,
+                    score: 0
+                };
+
+                game.clients.add(ws);
+                activePlayers.set(playerId, ws);
+
+                log('info', `Player ${nickname} (${playerId}) joined game ${password} at position (${initialPosition.x}, ${initialPosition.y})`);
+
+                // Send start message to the new player
+                ws.send(JSON.stringify({
+                    type: 'start',
+                    playerNumber: playerNumber,
+                    map: game.map,
+                    powerUps: Array.from(game.powerUps.entries()).map(([key, type]) => {
+                        const [x, y] = key.split(',').map(Number);
+                        return { x, y, type };
+                    }),
+                    players: game.players
+                }));
+
+                // Notify other clients about the new player
+                broadcastToGame(password, {
+                    type: 'newPlayer',
+                    playerId: playerId,
+                    nickname: nickname,
+                    x: initialPosition.x,
+                    y: initialPosition.y,
+                    playerNumber: playerNumber,
+                    players: game.players
+                }, ws);
+
+                // Update player list on all clients
+                broadcastToGame(password, {
+                    type: 'updatePlayerList',
+                    players: game.players
+                });
+            } else if (type === 'move') {
+                const { direction, playerId, password } = data;
+                const sanitizedPlayerId = sanitizePlayerId(playerId);
+                const sanitizedPassword = sanitizePassword(password);
+
+                if (!games[sanitizedPassword]) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid game password.' }));
+                    return;
+                }
+
+                const game = games[sanitizedPassword];
+                const player = game.players[sanitizedPlayerId];
+                if (!player) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Player not found in this game.' }));
+                    return;
+                }
+
+                let newX = player.x;
+                let newY = player.y;
+
+                if (direction === 'ArrowUp') newY--;
+                if (direction === 'ArrowDown') newY++;
+                if (direction === 'ArrowLeft') newX--;
+                if (direction === 'ArrowRight') newX++;
+
+                if (isWalkable(newX, newY, game)) {
+                    player.x = newX;
+                    player.y = newY;
+
+                    // Notify all clients about the movement
+                    broadcastToGame(sanitizedPassword, {
+                        type: 'update',
+                        playerId: sanitizedPlayerId,
+                        x: newX,
+                        y: newY,
+                        direction: direction,
+                        players: game.players
+                    });
+                }
+            } else if (type === 'placeBomb') {
+                const { playerId, password } = data;
+                const sanitizedPlayerId = sanitizePlayerId(playerId);
+                const sanitizedPassword = sanitizePassword(password);
+
+                if (!games[sanitizedPassword]) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid game password.' }));
+                    return;
+                }
+
+                const game = games[sanitizedPassword];
+                const player = game.players[sanitizedPlayerId];
+                if (!player) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Player not found in this game.' }));
+                    return;
+                }
+
+                if (player.currentBombs >= player.maxBombs) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'You have reached the maximum number of bombs.' }));
+                    return;
+                }
+
+                if (!player.canDropBomb) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Bomb drop is on cooldown.' }));
+                    return;
+                }
+
+                const bombX = player.x;
+                const bombY = player.y;
+
+                // Check if there's already a bomb on this tile
+                const existingBomb = game.bombs.find(b => b.x === bombX && b.y === bombY);
+                if (existingBomb) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'There is already a bomb on this tile.' }));
+                    return;
+                }
+
+                // Place the bomb
+                const bomb = {
+                    owner: sanitizedPlayerId,
+                    x: bombX,
+                    y: bombY,
+                    radius: player.bombRadius,
+                    timerId: null
+                };
+                game.bombs.push(bomb);
+                player.currentBombs++;
+
+                // Notify all clients about the bomb placement
+                broadcastToGame(sanitizedPassword, {
+                    type: 'bombPlaced',
+                    x: bombX,
+                    y: bombY
+                });
+
+                // Set a timer for the bomb to explode after 3 seconds
+                bomb.timerId = setTimeout(() => {
+                    explodeBomb(sanitizedPassword, bomb, new Set());
+                }, 3000);
+            } else if (type === 'chat') {
+                const { playerId, password, message } = data;
+                const sanitizedPlayerId = sanitizePlayerId(playerId);
+                const sanitizedPassword = sanitizePassword(password);
+                const sanitizedMessage = sanitizeChatMessage(message);
+
+                if (!games[sanitizedPassword]) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid game password.' }));
+                    return;
+                }
+
+                const game = games[sanitizedPassword];
+                const player = game.players[sanitizedPlayerId];
+                if (!player) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Player not found in this game.' }));
+                    return;
+                }
+
+                // Broadcast chat message to all clients in the game
+                broadcastToGame(sanitizedPassword, {
+                    type: 'chat',
+                    nickname: player.nickname,
+                    message: sanitizedMessage
+                });
+            }
+        } catch (error) {
+            log('error', `WebSocket Error handling message: ${error.message}`);
+            ws.send(JSON.stringify({ type: 'error', message: 'Internal server error.' }));
+        }
+    });
+
+    ws.on('close', () => {
+        // Handle player disconnection
+        let gamePassword = null;
+        let playerId = null;
+
+        // Find the game and player associated with this connection
+        for (const [password, game] of Object.entries(games)) {
+            for (const [pid, player] of Object.entries(game.players)) {
+                if (activePlayers.get(pid) === ws) {
+                    gamePassword = password;
+                    playerId = pid;
+                    break;
+                }
+            }
+            if (gamePassword) break;
+        }
+
+        if (gamePassword && playerId && games[gamePassword]) {
+            const game = games[gamePassword];
+            const player = game.players[playerId];
+            if (player) {
+                log('info', `Player ${player.nickname} left game ${gamePassword}`);
+                delete game.players[playerId];
+                game.clients.delete(ws);
+
+                // Notify other clients that a player has left
+                broadcastToGame(gamePassword, {
+                    type: 'playerLeft',
+                    playerId: playerId
+                });
+
+                // Update player list on clients
+                broadcastToGame(gamePassword, {
+                    type: 'updatePlayerList',
+                    players: game.players
+                });
+
+                // Clean up bombs placed by the leaving player
+                game.bombs = game.bombs.filter(bomb => {
+                    if (bomb.owner === playerId) {
+                        if (bomb.timerId) clearTimeout(bomb.timerId);
+                        return false;
+                    }
+                    return true;
+                });
             }
         }
+
+        // Remove playerId from activePlayers map
+        if (playerId && activePlayers.has(playerId)) {
+            activePlayers.delete(playerId);
+        }
+
+        // Decrement the connection count for the IP
+        const currentConnections = ipConnections.get(ip) || 1;
+        if (currentConnections <= 1) {
+            ipConnections.delete(ip);
+        } else {
+            ipConnections.set(ip, currentConnections - 1);
+        }
+
+        log('info', `WebSocket connection from IP: ${ip} closed.`);
+    });
+
+    ws.on('error', (error) => {
+        log('error', `WebSocket error: ${error.message}`);
+    });
+});
+
+// Function to broadcast updated player list
+function broadcastUpdatedPlayerList(gamePassword) {
+    const game = games[gamePassword];
+    if (game) {
+        const playersData = {};
+        for (const [pid, player] of Object.entries(game.players)) {
+            playersData[pid] = {
+                nickname: player.nickname,
+                score: player.score,
+                speed: player.speed,
+                shielded: player.shielded
+            };
+        }
+        broadcastToGame(gamePassword, {
+            type: 'updatePlayerList',
+            players: playersData
+        });
     }
-    return '0.0.0.0';
 }
 
 // Graceful Shutdown
@@ -1012,4 +844,23 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
     log('error', `Unhandled Rejection at: ${promise} reason: ${reason}`);
     gracefulShutdown();
+});
+
+// Function to get the local IP address of the server
+function getLocalIPAddress() {
+    const networkInterfaces = os.networkInterfaces();
+    for (const interfaceName of Object.keys(networkInterfaces)) {
+        for (const iface of networkInterfaces[interfaceName]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return '0.0.0.0';
+}
+
+// Start the server and listen on all network interfaces
+server.listen(port, '0.0.0.0', () => {
+    log('info', `Server is running on port ${port}`);
+    log('info', `Accessible online at http://${getLocalIPAddress()}:${port}`);
 });
