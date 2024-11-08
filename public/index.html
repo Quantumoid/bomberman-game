@@ -525,7 +525,7 @@
             backdrop-filter: blur(5px);
         }
         @keyframes fadeoutMessage {
-            0% { opacity: 1; transform: translateY(0); }
+            from { opacity: 1; transform: translateY(0); }
             80% { opacity: 1; transform: translateY(-10px); }
             100% { opacity: 0; transform: translateY(-20px); }
         }
@@ -785,6 +785,17 @@
             from { background-position: 0 0; }
             to { background-position: 100px 100px; }
         }
+
+        /* Shielded player blinking */
+        .shielded {
+            animation: shieldBlink 1s infinite;
+        }
+        @keyframes shieldBlink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
     </style>
     <!-- Google Fonts for Orbitron -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -922,6 +933,8 @@
                         powerUpElement.src = '/power_up_extra_blast_radius.png';
                     } else if (powerUpType === 'speed') {
                         powerUpElement.src = '/speed_powerup.png';
+                    } else if (powerUpType === 'shield') {
+                        powerUpElement.src = '/shield_powerup.png';
                     }
 
                     cell.appendChild(powerUpElement);
@@ -1115,6 +1128,13 @@
         players[pid].x = x;
         players[pid].y = y;
         players[pid].direction = mappedDirection;
+
+        // Handle shielded state
+        if (players[pid].shielded) {
+            playerElement.classList.add('shielded');
+        } else {
+            playerElement.classList.remove('shielded');
+        }
     }
 
     function removePlayer(pid) {
@@ -1205,6 +1225,8 @@
                 powerUpElement.src = '/power_up_extra_blast_radius.png';
             } else if (powerUp.type === 'speed') {
                 powerUpElement.src = '/speed_powerup.png';
+            } else if (powerUp.type === 'shield') {
+                powerUpElement.src = '/shield_powerup.png';
             }
 
             powerUpCell.appendChild(powerUpElement);
@@ -1361,6 +1383,7 @@
                     players[pid] = players[pid] || {};
                     players[pid].speed = player.speed || 1;
                     players[pid].nickname = player.nickname || `Player ${player.playerNumber || pid}`;
+                    players[pid].shielded = player.shielded || false;
                 }
 
                 // Update player list
@@ -1397,6 +1420,7 @@
                         players[pid].y = player.y;
                         players[pid].speed = player.speed || 1;
                         players[pid].nickname = player.nickname || `Player ${player.playerNumber || pid}`;
+                        players[pid].shielded = player.shielded || false;
                         updatePlayerPosition(pid, player.x, player.y, 'down');
                     }
 
@@ -1428,6 +1452,7 @@
                 // Store nickname
                 players[newPlayerId] = players[newPlayerId] || {};
                 players[newPlayerId].nickname = message.nickname || `Player ${message.playerNumber || newPlayerId}`;
+                players[newPlayerId].shielded = false;
 
                 // Update player list
                 if (message.players && typeof message.players === 'object') {
@@ -1510,6 +1535,24 @@
                     if (powerupSound) {
                         powerupSound.currentTime = 0;
                         powerupSound.play();
+                    }
+                }
+            } else if (message.type === 'shieldActivated') {
+                if (message.playerId) {
+                    const pid = message.playerId;
+                    players[pid].shielded = true;
+                    const playerElement = playerElements[pid]?.image;
+                    if (playerElement) {
+                        playerElement.classList.add('shielded');
+                    }
+                }
+            } else if (message.type === 'shieldDeactivated') {
+                if (message.playerId) {
+                    const pid = message.playerId;
+                    players[pid].shielded = false;
+                    const playerElement = playerElements[pid]?.image;
+                    if (playerElement) {
+                        playerElement.classList.remove('shielded');
                     }
                 }
             } else if (message.type === 'chat') {
