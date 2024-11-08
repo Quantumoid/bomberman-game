@@ -103,6 +103,10 @@
             from { transform: translate(0, 0); }
             to { transform: translate(50%, 50%); }
         }
+        @keyframes trophyMove {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
         #game-container { 
             display: flex; 
             flex-direction: row; 
@@ -129,6 +133,35 @@
             color: #00ffff;
             height: 650px;
             backdrop-filter: blur(10px);
+            position: relative;
+        }
+        #chat-container::before,
+        #chat-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background: transparent;
+            box-shadow: 
+                10px 20px white, 50px 80px white, 100px 150px white,
+                200px 300px white, 350px 420px white, 400px 500px white,
+                600px 700px white, 750px 820px white, 900px 950px white,
+                1100px 1200px white, 1300px 1400px white, 1500px 1600px white,
+                1700px 1800px white, 1900px 2000px white;
+            animation: moveStars 100s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        #chat-container::after {
+            box-shadow: 
+                15px 25px white, 55px 85px white, 105px 155px white,
+                205px 305px white, 355px 425px white, 405px 505px white,
+                605px 705px white, 755px 825px white, 905px 955px white,
+                1105px 1210px white, 1310px 1410px white, 1510px 1610px white,
+                1710px 1810px white, 1910px 2010px white;
+            animation: moveStarsReverse 150s linear infinite;
         }
         #chat-container h2 {
             margin-bottom: 25px;
@@ -145,16 +178,37 @@
         .chat-message {
             background: rgba(0, 0, 0, 0.8);
             padding: 10px;
-            margin-bottom: 10px;
+            margin: 10px 0;
             border-radius: 10px;
-            font-size: 14px;
+            animation: fadeoutMessage 6s forwards;
+            font-size: 16px;
             color: #00ffff;
             text-shadow: 0 0 7px #00ffff;
-            animation: fadeInChat 0.5s ease-in-out;
+            backdrop-filter: blur(5px);
         }
-        @keyframes fadeInChat {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes fadeoutMessage {
+            0% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(-10px); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+        .chat-message.hit-message {
+            background: rgba(255, 0, 0, 0.8);
+            color: #fff;
+            font-weight: bold;
+            animation: shakeFade 6s forwards;
+            text-shadow: 0 0 15px #ff0000;
+        }
+        @keyframes shakeFade {
+            0% { opacity: 1; transform: translateX(0); }
+            10% { transform: translateX(-5px); }
+            20% { transform: translateX(5px); }
+            30% { transform: translateX(-5px); }
+            40% { transform: translateX(5px); }
+            50% { transform: translateX(-5px); }
+            60% { transform: translateX(5px); }
+            70% { transform: translateX(-5px); }
+            80% { opacity: 0.5; transform: translateX(0); }
+            100% { opacity: 0; transform: translateX(0); }
         }
         .chat-message .nickname {
             color: #ff69b4;
@@ -255,6 +309,7 @@
             z-index: 1;
             pointer-events: none;
             animation: glowPowerUp 2s ease-in-out infinite alternate;
+            box-shadow: 0 0 10px purple;
         }
         @keyframes glowPowerUp {
             from { filter: brightness(1); }
@@ -303,7 +358,7 @@
 
         /* Flash effect when player is hit */
         .player.hit {
-            animation: flashRed 1s;
+            animation: flashRed 5s;
         }
         @keyframes flashRed {
             0% { filter: brightness(1); }
@@ -374,6 +429,35 @@
             display: flex;
             flex-direction: column;
             backdrop-filter: blur(10px);
+            position: relative;
+        }
+        #player-list::before,
+        #player-list::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background: transparent;
+            box-shadow: 
+                10px 20px white, 50px 80px white, 100px 150px white,
+                200px 300px white, 350px 420px white, 400px 500px white,
+                600px 700px white, 750px 820px white, 900px 950px white,
+                1100px 1200px white, 1300px 1400px white, 1500px 1600px white,
+                1700px 1800px white, 1900px 2000px white;
+            animation: moveStars 100s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        #player-list::after {
+            box-shadow: 
+                15px 25px white, 55px 85px white, 105px 155px white,
+                205px 305px white, 355px 425px white, 405px 505px white,
+                605px 705px white, 755px 825px white, 905px 955px white,
+                1105px 1210px white, 1310px 1410px white, 1510px 1610px white,
+                1710px 1810px white, 1910px 2010px white;
+            animation: moveStarsReverse 150s linear infinite;
         }
         #player-list h2 {
             margin-bottom: 25px;
@@ -411,11 +495,7 @@
             width: 45px;
             height: 45px;
             margin-left: 10px;
-            animation: rotateTrophy 4s linear infinite;
-        }
-        @keyframes rotateTrophy {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            animation: trophyMove 4s ease-in-out infinite;
         }
 
         /* Styles for the message container and messages */
@@ -427,6 +507,11 @@
             max-height: 180px;
             overflow-y: auto;
             flex: 0 0 auto;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        #message-container::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera*/
         }
         .game-message {
             display: block;
@@ -440,11 +525,6 @@
             text-shadow: 0 0 7px #00ffff;
             backdrop-filter: blur(5px);
         }
-        @keyframes fadeoutMessage {
-            0% { opacity: 1; transform: translateY(0); }
-            80% { opacity: 1; transform: translateY(-10px); }
-            100% { opacity: 0; transform: translateY(-20px); }
-        }
 
         /* Optional: Enhanced styling for hit messages */
         .game-message.hit-message {
@@ -453,18 +533,6 @@
             font-weight: bold;
             animation: shakeFade 6s forwards;
             text-shadow: 0 0 15px #ff0000;
-        }
-        @keyframes shakeFade {
-            0% { opacity: 1; transform: translateX(0); }
-            10% { transform: translateX(-5px); }
-            20% { transform: translateX(5px); }
-            30% { transform: translateX(-5px); }
-            40% { transform: translateX(5px); }
-            50% { transform: translateX(-5px); }
-            60% { transform: translateX(5px); }
-            70% { transform: translateX(-5px); }
-            80% { opacity: 0.5; transform: translateX(0); }
-            100% { opacity: 0; transform: translateX(0); }
         }
 
         /* Styles for the nickname overlay */
@@ -1110,6 +1178,39 @@
 
             powerUpCell.appendChild(powerUpElement);
         });
+
+        // Add 50% more power-ups based on destroyed bricks
+        destroyedBricks.forEach((brick, index) => {
+            if (Math.random() < 0.5) {
+                const type = ['bombCapacity', 'blastRadius', 'speed'][Math.floor(Math.random() * 3)];
+                const newPowerUp = { x: brick.x, y: brick.y, type: type };
+                // Add to newPowerUps array
+                newPowerUps.push(newPowerUp);
+                // Handle as existing power-ups
+                const idx = newPowerUp.y * 15 + newPowerUp.x;
+                const powerUpCell = gameElement.children[idx];
+                const powerUpKey = `${newPowerUp.x},${newPowerUp.y}`;
+                powerUps[powerUpKey] = newPowerUp.type; // Update powerUps object
+                map[newPowerUp.y][newPowerUp.x] = 0; // Update map array
+
+                // Remove any existing classes (e.g., empty-space)
+                powerUpCell.className = 'cell empty-space';
+
+                // Create an img element for the power-up icon
+                const powerUpElement = document.createElement('img');
+                powerUpElement.classList.add('power-up-icon');
+
+                if (newPowerUp.type === 'bombCapacity') {
+                    powerUpElement.src = '/power_up_max_bombs.png';
+                } else if (newPowerUp.type === 'blastRadius') {
+                    powerUpElement.src = '/power_up_extra_blast_radius.png';
+                } else if (newPowerUp.type === 'speed') {
+                    powerUpElement.src = '/speed_powerup.png';
+                }
+
+                powerUpCell.appendChild(powerUpElement);
+            }
+        });
     }
 
     function displayExplosion(cell) {
@@ -1164,13 +1265,13 @@
         if (!player) return;
 
         if (player.speed === 1) {
-            movementSpeed = 250;
+            movementSpeed = 300;
         } else if (player.speed === 2) {
-            movementSpeed = 219;
+            movementSpeed = 269;
         } else if (player.speed === 3) {
-            movementSpeed = 188;
+            movementSpeed = 238;
         } else if (player.speed >= 4) {
-            movementSpeed = 156;
+            movementSpeed = 206;
         }
         // Restart movement interval to apply new speed
         if (movementInterval) {
@@ -1193,6 +1294,10 @@
 
         messageContainer.appendChild(messageElement);
         messageContainer.scrollTop = messageContainer.scrollHeight;
+
+        messageElement.addEventListener('animationend', () => {
+            messageElement.remove();
+        }, { once: true });
     }
 
     function showErrorOverlay() {
@@ -1421,6 +1526,10 @@
 
                     chatMessages.appendChild(chatMsg);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                    chatMsg.addEventListener('animationend', () => {
+                        chatMsg.remove();
+                    }, { once: true });
                 }
             } else if (message.type === 'updatePlayerList') {
                 if (message.players && typeof message.players === 'object') {
