@@ -398,7 +398,7 @@ function explodeBomb(gamePassword, bomb, explodedBombs) {
                                     powerUpType = 'bombCapacity';
                                 } else if (powerUpTypeRandom < 0.70) {
                                     powerUpType = 'blastRadius';
-                                } else if (powerUpTypeRandom < 0.90) {
+                                } else if (powerUpTypeRandom < 0.85) {
                                     powerUpType = 'speed';
                                 } else {
                                     powerUpType = 'shield';
