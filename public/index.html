@@ -154,6 +154,9 @@
             flex: 1;
             overflow-y: auto;
             margin-bottom: 15px;
+            word-wrap: break-word;
+            word-break: break-all;
+            white-space: pre-wrap;
         }
         .chat-message {
             background: rgba(0, 0, 0, 0.8);
@@ -164,6 +167,9 @@
             color: #00ffff;
             text-shadow: 0 0 7px #00ffff;
             animation: fadeInChat 0.5s ease-in-out;
+            word-wrap: break-word;
+            word-break: break-all;
+            white-space: pre-wrap;
         }
         @keyframes fadeInChat {
             from { opacity: 0; transform: translateY(10px); }
@@ -204,6 +210,39 @@
         #chat-send:hover {
             background-color: #00cccc;
             transform: scale(1.05);
+        }
+        #char-counter {
+            display: block;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #00ffff;
+            text-align: right;
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        /* Custom Scrollbar Styles */
+        /* WebKit Browsers */
+        #chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-messages::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: #00ffff;
+            border-radius: 4px;
+        }
+        #chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #00cccc;
+        }
+        /* Firefox */
+        #chat-messages {
+            scrollbar-width: thin;
+            scrollbar-color: #00ffff rgba(0, 0, 0, 0.3);
+        }
+        #chat-messages:hover {
+            scrollbar-color: #00cccc rgba(0, 0, 0, 0.3);
         }
         #game-area { 
             display: flex; 
@@ -301,7 +340,6 @@
             top: -22px;
             left: 50%;
             transform: translateX(-50%);
-            /* background: rgba(0, 0, 0, 0.6); */
             color: #00ffff;
             padding: 3px 7px;
             border-radius: 7px;
@@ -427,21 +465,22 @@
             color: #ffffff;
             text-shadow: 0 0 7px #00ffff;
             animation: slideIn 0.5s ease-in-out;
+            gap: 5px;
         }
         @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
+            from { opacity: 0; transform: translateX(-20px); } 
             to { opacity: 1; transform: translateX(0); }
         }
         #player-list li img.player-icon {
             width: 35px;
             height: 35px;
-            margin-right: 10px;
+            margin: 0;
             filter: drop-shadow(0 0 7px #00ffff);
         }
         #player-list li img.trophy {
             width: 45px;
             height: 45px;
-            margin-left: 10px;
+            margin: 0;
             animation: scaleTrophy 4s ease-in-out infinite;
         }
         @keyframes scaleTrophy {
@@ -744,10 +783,11 @@
 <div id="game-container">
     <div id="chat-container">
         <h2>Chat</h2>
-        <div id="chat-messages"></div>
+        <div id="chat-messages" aria-live="polite" aria-atomic="false"></div>
+        <span id="char-counter">100 characters remaining</span>
         <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Type your message..." maxlength="100">
-            <button id="chat-send">SEND</button>
+            <input type="text" id="chat-input" placeholder="Type your message..." maxlength="100" aria-label="Chat input">
+            <button id="chat-send" aria-label="Send message">SEND</button>
         </div>
     </div>
     <div id="game-area">
@@ -796,6 +836,7 @@
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const chatSend = document.getElementById('chat-send');
+    const charCounter = document.getElementById('char-counter'); // Character counter
     const errorOverlay = document.getElementById('error-overlay');
     const errorRetryButton = document.getElementById('error-retry');
 
@@ -1231,6 +1272,7 @@
         messageContainer.appendChild(messageElement);
         messageContainer.scrollTop = messageContainer.scrollHeight;
 
+        // Remove the message after animation ends
         messageElement.addEventListener('animationend', () => {
             messageElement.remove();
         });
@@ -1540,6 +1582,14 @@
             }
         });
 
+        // Update character counter on input
+        const maxChars = chatInput.getAttribute('maxlength') ? parseInt(chatInput.getAttribute('maxlength')) : 200; // Default to 200 if maxlength not set
+
+        chatInput.addEventListener('input', () => {
+            const remaining = maxChars - chatInput.value.length;
+            charCounter.textContent = `${remaining} characters remaining`;
+        });
+
         // Error Retry Button
         errorRetryButton.addEventListener('click', () => {
             hideErrorOverlay();
@@ -1601,7 +1651,9 @@
             }
             // Hide the overlay
             nicknameOverlay.style.display = 'none';
-            // Focus on the game area
+            // Focus on the chat input for immediate typing
+            chatInput.focus();
+            // Join the game
             joinGame();
         });
 
