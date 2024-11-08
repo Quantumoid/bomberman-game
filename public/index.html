@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bomberman</title>
+    <title>Bomberman Game</title>
     <link rel="icon" href="/favicon.png" type="image/x-icon">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
@@ -29,8 +29,7 @@
             left: 0;
             width: 300%;
             height: 300%;
-            background: url('/space_background.jpg') no-repeat center center;
-            background-size: cover;
+            background: radial-gradient(circle at center, #090979, #020024);
             z-index: -3;
             animation: zoomBackground 60s linear infinite;
         }
@@ -132,82 +131,84 @@
             position: relative;
             overflow: hidden;
         }
-        #chat-container::before, #chat-container::after {
+        #chat-container::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
-            width: 200%;
-            height: 200%;
-            background: transparent;
-            box-shadow: 
-                5px 10px white, 25px 40px white, 50px 75px white,
-                100px 150px white, 175px 210px white, 200px 250px white,
-                300px 350px white, 375px 410px white, 450px 475px white,
-                550px 600px white, 650px 700px white, 750px 800px white,
-                850px 900px white, 950px 1000px white;
-            animation: moveStars 80s linear infinite;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 1px, transparent 1px);
+            background-size: 20px 20px;
+            animation: moveParticles 60s linear infinite;
             z-index: -1;
         }
-        #chat-container::after {
-            box-shadow: 
-                10px 15px white, 30px 45px white, 60px 90px white,
-                120px 180px white, 210px 250px white, 240px 300px white,
-                360px 420px white, 420px 460px white, 540px 580px white,
-                660px 720px white, 780px 840px white, 900px 960px white,
-                1020px 1080px white, 1140px 1200px white;
-            animation: moveStarsReverse 120s linear infinite;
-        }
-        #player-list {
-            background: rgba(0, 0, 0, 0.7);
-            border: 3px solid #00ffff;
-            padding: 25px;
-            border-radius: 20px;
-            width: 300px;
-            max-width: 100%;
-            height: 650px;
-            overflow-y: hidden;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+        #chat-container h2 {
+            margin-bottom: 25px;
+            text-align: center;
             color: #00ffff;
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 15px #00ffff;
+        }
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        .chat-message {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #00ffff;
+            text-shadow: 0 0 7px #00ffff;
+            animation: fadeInChat 0.5s ease-in-out, fadeoutAndRemove 6s forwards;
+        }
+        @keyframes fadeInChat {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeoutAndRemove {
+            0% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        .chat-message .nickname {
+            color: #ff69b4;
+            font-weight: bold;
+        }
+        #chat-input-container {
             display: flex;
-            flex-direction: column;
-            backdrop-filter: blur(10px);
-            position: relative;
-            overflow: hidden;
+            gap: 15px;
         }
-        #player-list::before, #player-list::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 200%;
-            height: 200%;
-            background: transparent;
-            box-shadow: 
-                5px 10px white, 25px 40px white, 50px 75px white,
-                100px 150px white, 175px 210px white, 200px 250px white,
-                300px 350px white, 375px 410px white, 450px 475px white,
-                550px 600px white, 650px 700px white, 750px 800px white,
-                850px 900px white, 950px 1000px white;
-            animation: moveStars 90s linear infinite;
-            z-index: -1;
+        #chat-input {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: #00ffff;
+            box-shadow: 0 0 10px rgba(0,255,255,0.7);
+            backdrop-filter: blur(5px);
         }
-        #player-list::after {
-            box-shadow: 
-                10px 15px white, 30px 45px white, 60px 90px white,
-                120px 180px white, 210px 250px white, 240px 300px white,
-                360px 420px white, 420px 460px white, 540px 580px white,
-                660px 720px white, 780px 840px white, 900px 960px white,
-                1020px 1080px white, 1140px 1200px white;
-            animation: moveStarsReverse 110s linear infinite;
+        #chat-send {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            background-color: #00ffff;
+            color: #000;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 0 10px rgba(0,255,255,0.7);
+            backdrop-filter: blur(5px);
         }
-        @keyframes moveStars {
-            from { transform: translate(0, 0); }
-            to { transform: translate(-50%, -50%); }
-        }
-        @keyframes moveStarsReverse {
-            from { transform: translate(0, 0); }
-            to { transform: translate(50%, 50%); }
+        #chat-send:hover {
+            background-color: #00cccc;
+            transform: scale(1.05);
         }
         #game-area { 
             display: flex; 
@@ -259,7 +260,11 @@
         .indestructible-wall {
             background-color: #004d00;
             box-shadow: 0 0 15px #00FF99;
-            animation: rotateWall 6s linear infinite;
+            animation: scaleWall 6s ease-in-out infinite;
+        }
+        @keyframes scaleWall {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
 
         /* Power-up icons will be images inside the cell */
@@ -378,6 +383,8 @@
 
         /* Updated styles for the player list */
         #player-list {
+            display: flex;
+            flex-direction: column;
             background: rgba(0, 0, 0, 0.7);
             border: 3px solid #00ffff;
             padding: 25px;
@@ -385,14 +392,24 @@
             width: 300px;
             max-width: 100%;
             height: 650px;
-            overflow-y: hidden;
+            overflow-y: auto;
             box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
             color: #00ffff;
-            display: flex;
-            flex-direction: column;
             backdrop-filter: blur(10px);
             position: relative;
             overflow: hidden;
+        }
+        #player-list::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 1px, transparent 1px);
+            background-size: 20px 20px;
+            animation: moveParticles 60s linear infinite;
+            z-index: -1;
         }
         #player-list h2 {
             margin-bottom: 25px;
@@ -430,9 +447,9 @@
             width: 45px;
             height: 45px;
             margin-left: 10px;
-            animation: pulsateTrophy 4s ease-in-out infinite;
+            animation: scaleTrophy 4s ease-in-out infinite;
         }
-        @keyframes pulsateTrophy {
+        @keyframes scaleTrophy {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.2); }
         }
@@ -444,7 +461,7 @@
             text-align: left;
             position: relative;
             max-height: 180px;
-            overflow: hidden;
+            overflow-y: auto;
             flex: 0 0 auto;
         }
         .game-message {
@@ -713,6 +730,12 @@
             outline: none;
             cursor: pointer;
             transition: all 0.3s ease;
+        }
+
+        /* Particle Movement */
+        @keyframes moveParticles {
+            from { background-position: 0 0; }
+            to { background-position: 100px 100px; }
         }
     </style>
     <!-- Google Fonts for Orbitron -->
@@ -1129,49 +1152,6 @@
 
             powerUpCell.appendChild(powerUpElement);
         });
-
-        // Ensure at least 50% of destroyedBricks drop power-ups
-        const requiredPowerUps = Math.ceil(destroyedBricks.length * 0.5);
-        const existingPowerUps = newPowerUps.length;
-        if (existingPowerUps < requiredPowerUps) {
-            const additionalPowerUpsNeeded = requiredPowerUps - existingPowerUps;
-            const availableBricks = destroyedBricks.filter(brick => {
-                return !newPowerUps.some(pu => pu.x === brick.x && pu.y === brick.y);
-            });
-            for (let i = 0; i < additionalPowerUpsNeeded && i < availableBricks.length; i++) {
-                const brick = availableBricks[i];
-                const powerUpTypeOptions = ['bombCapacity', 'blastRadius', 'speed'];
-                const randomType = powerUpTypeOptions[Math.floor(Math.random() * powerUpTypeOptions.length)];
-                const powerUp = {
-                    x: brick.x,
-                    y: brick.y,
-                    type: randomType
-                };
-                newPowerUps.push(powerUp);
-                const idx = brick.y * 15 + brick.x;
-                const powerUpCell = gameElement.children[idx];
-                const powerUpKey = `${brick.x},${brick.y}`;
-                powerUps[powerUpKey] = powerUp.type; // Update powerUps object
-                map[brick.y][brick.x] = 0; // Update map array
-
-                // Remove any existing classes (e.g., empty-space)
-                powerUpCell.className = 'cell empty-space';
-
-                // Create an img element for the power-up icon
-                const powerUpElement = document.createElement('img');
-                powerUpElement.classList.add('power-up-icon');
-
-                if (powerUp.type === 'bombCapacity') {
-                    powerUpElement.src = '/power_up_max_bombs.png';
-                } else if (powerUp.type === 'blastRadius') {
-                    powerUpElement.src = '/power_up_extra_blast_radius.png';
-                } else if (powerUp.type === 'speed') {
-                    powerUpElement.src = '/speed_powerup.png';
-                }
-
-                powerUpCell.appendChild(powerUpElement);
-            }
-        }
     }
 
     function displayExplosion(cell) {
@@ -1254,6 +1234,11 @@
         messageElement.appendChild(document.createTextNode(text));
 
         messageContainer.appendChild(messageElement);
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+
+        messageElement.addEventListener('animationend', () => {
+            messageElement.remove();
+        });
     }
 
     function showErrorOverlay() {
@@ -1482,6 +1467,10 @@
 
                     chatMessages.appendChild(chatMsg);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                    chatMsg.addEventListener('animationend', () => {
+                        chatMsg.remove();
+                    });
                 }
             } else if (message.type === 'updatePlayerList') {
                 if (message.players && typeof message.players === 'object') {
